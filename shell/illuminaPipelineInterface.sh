@@ -8,12 +8,13 @@ then
 	echo "-a assayID"
 	echo "-i instrumentID"
 	echo "-e environmentID"
+	echo "-q queueID"
 	exit
 fi
 
 if test $# -gt 0
 	then
-	while getopts :r:s:a:i:e: opt
+	while getopts :r:s:a:i:e:q: opt
 	do
 	case $opt in
 	r)
@@ -31,6 +32,9 @@ if test $# -gt 0
   e)
     environmentID=$OPTARG
 	  ;;
+	q)
+		queueID=$OPTARG
+		;;
 	:)
 		echo "Option -$OPTARG requires an argument."
 		;;
@@ -55,12 +59,10 @@ fi
 if [ $assayID == "heme" ] && [ $instrumentID == "miseq" ]
 then
 
-	ampliconFile=$(ls /home/$instrumentID/*_"$runID"_*/Data/Intensities/BaseCalls/Alignment/AmpliconCoverage_M1.tsv)
-	runFolder=$(ls -d /home/$instrumentID/*_"$runID"_*/Data/Intensities/BaseCalls/Alignment/)
+  runFolder=$(ls -d /home/$instrumentID/*_"$runID"_*/Data/Intensities/BaseCalls/Alignment/)
 	post=${runFolder##/home/$instrumentID/}
 	runName=${post%%/Data/Intensities/BaseCalls/Alignment*}
 
-	echo "amplicon $ampliconFile"
 	echo "runfolder $runFolder"
 	echo "post $post"
 	echo "runName $runName"
@@ -89,7 +91,7 @@ then
 	sampleID : $sampleID
 	environmentID : $environmentID"
 
-	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID
+	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID -q $queueID
 	exit
 
 elif [ $assayID == "heme" ] && [ $instrumentID == "nextseq" ]
@@ -100,20 +102,20 @@ then
 	runName=${runFolder##/home/$instrumentID/}				#eg: 150807_NS500761_0011_AH3TTJAFXX
 	echo $runName
 
-	if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName ]
+	if [ ! -d /home/environments/$environmentID/"$instrumentID"_heme/$runName ]
 	then
-		mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName
+		mkdir /home/environments/$environmentID/"$instrumentID"_heme/$runName
 	fi
-	chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName
+	chmod 777 /home/environments/$environmentID/"$instrumentID"_heme/$runName
 
-	if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID ]
+	if [ ! -d /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID ]
 	then
-		mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID
+		mkdir /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID
 	fi
-	chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID
+	chmod 777 /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID
 
-	exec >  >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/process.log)
-	exec 2> >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/process.log >&2)
+	exec >  >(tee -a /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID/process.log)
+	exec 2> >(tee -a /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID/process.log >&2)
 
 	echo "Running illuminaPipeline for :
 	assayID : $assayID
@@ -123,16 +125,15 @@ then
 	environmentID : $environmentID"
 
 
-	# ##Converting bcl to fastq
-	# echo "Converting bcl to fastq"
-	# bcl2fastq --no-lane-splitting --runfolder-dir $runFolder --output-dir $runFolder/out1
-	#
+  bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s bcl2fastq
 
 	if [ ! -f /home/$instrumentID/*_"$runID"_*/out1/"$sampleID"*_R1_001.fastq.gz ]
 	then
 		echo "Fastq files not found. Converting bcl to fastq"
 		bcl2fastq --no-lane-splitting --runfolder-dir $runFolder --output-dir $runFolder/out1
 	fi
+
+  bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s varscanPE
 
 	##Aligning fastq files
 	echo "Aligning fastq files"
@@ -142,12 +143,12 @@ then
   echo $file
 	echo $fastq2
 
-	bash /home/pipelines/master/shell/VarScanPipelinePE.sh -p $fastq1 -q $fastq2 -o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/
+	bash /home/pipelines/master/shell/VarScanPipelinePE.sh -p $fastq1 -q $fastq2 -o /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID/
 
 
 	# ##Variant calling
 	echo "Starting variant calling"
-	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID
+	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID -q $queueID
 
   exit
 

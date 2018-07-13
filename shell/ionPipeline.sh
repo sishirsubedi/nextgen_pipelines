@@ -97,45 +97,26 @@ then
 fi
 
 
-if [ ! -d /home/$instrumentID/*"$runID"/plugin_out/coverageAnalysis_out."$coverageID"/ ]
-then
-	echo "coverage folder for run ID:$runID; coverage ID:$coverageID not found"
-exit
-fi
-
-if [ ! -d /home/$instrumentID/*"$runID"/plugin_out/variantCaller_out."$callerID"/ ]
-then
-	echo "variant folder for run ID:$runID; variant caller ID:$callerID not found"
-exit
-fi
-
-
 variantFolder=$(ls -d /home/$instrumentID/*$runID/plugin_out/variantCaller_out."$callerID")
 ampliconFolder=$(ls -d /home/$instrumentID/*"$runID"/plugin_out/coverageAnalysis_out."$coverageID")
 runFolder=$(ls -d /home/$instrumentID/*$runID)
 runName=${runFolder##*/}
 
 #make output directory
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName ]
+
+if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID" ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName
+	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"
 fi
 
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName
+chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"
 
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID" ]
+if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID" ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"
+	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"
 fi
 
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"
-
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID" ]
-then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID"
-fi
-
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID"
+chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"
 
 echo "Runfolder is $runFolder"
 
@@ -151,7 +132,7 @@ then
 	monthWord=$(echo $runDate |cut -d ' ' -f 2)
 	month=${months["$monthWord"]}
 	date=$year-$month-$day
-	echo $date > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/runDate.txt
+	echo $date > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/runDate.txt
 else
 	echo "Warning: InitLog.txt file not found, run date will not be entered"
 fi
@@ -167,17 +148,17 @@ file=$variantFolder/$sampleID/TSVC_variants.vcf
 echo "Processing $file"
 sampleFolder=${file%/*}
 sampleName=${sampleFolder##*/}
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName ]
+if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID" ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName
+	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"
 fi
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID"/$sampleName ]
+if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID" ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID"/$sampleName
+	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"
 fi
 
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID"/$sampleName
+chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"
+chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"
 
 echo "filter against amplicon"
 echo " sampleID is $sampleID"
@@ -189,31 +170,32 @@ echo " sample_ID is $sample_ID"
 
 echo "----------> File is $file"
 echo "----------> File is $ampliconRef"
-if [ ! -z $ampliconRef ]
-then
-	/opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $file -b $ampliconRef > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.filter.vcf
-else
-	ln -s $file /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.filter.vcf
-fi
 
 bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s bedtools
 
-
-echo "split multiple alt alleles into different lines"
-python /home/pipelines/master/python/splitVcf.py \
--I /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.filter.vcf \
--f FAO,FDP,AF \
--o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vcf
+if [ ! -z $ampliconRef ]
+then
+	/opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $file -b $ampliconRef > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.filter.vcf
+else
+	ln -s $file /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.filter.vcf
+fi
 
 
 bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s splitVcf
 
+echo "split multiple alt alleles into different lines"
+python /home/pipelines/master/python/splitVcf.py \
+-I /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.filter.vcf \
+-f FAO,FDP,AF \
+-o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vcf
+
+bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s vep
 
 echo "running VEP"
 /home/pipelines/master/perl/bin/perl \
 /opt/vep/ensembl-tools-release-83/scripts/variant_effect_predictor/variant_effect_predictor.pl \
--i /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vcf \
--o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vep.vcf \
+-i /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vcf \
+-o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.vcf \
 --offline \
 --dir_cache /opt/vep/ensembl-tools-release-83/cache/ \
 --sift p \
@@ -229,39 +211,39 @@ echo "running VEP"
 --gmaf \
 --maf_1kg
 
-bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s vep
+
 
 echo "parse VEP results"
 python /home/pipelines/master/python/parseVEP.py \
 parseIonNewVarView \
--I /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vep.vcf \
--o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vep.parse.newVarView.txt
+-I /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.vcf \
+-o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt
 
 echo "filter VEP results"
 shopt -s nocasematch
 if [[ $sample_ID =~ horizon ]]
 then
-	awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vep.parse.newVarView.txt \
-	> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vep.parse.newVarView.filter.txt
+	awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt \
+	> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
 else
-	awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $10 != "null" && $11 >=100 && $11 != "null") print}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vep.parse.newVarView.txt \
-	> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vep.parse.newVarView.filter.txt
+	awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $10 != "null" && $11 >=100 && $11 != "null") print}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt \
+	> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
 fi
 
 
-sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/variantCaller_out."$callerID"/$sampleName/TSVC_variants.split.vep.parse.newVarView.filter.txt
+sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
 
 echo "processing amplicon coverage file"
 ampliconFile=$(ls $ampliconFolder/$sampleName/*.amplicon.cov.xls)
 if [ ! -z $excluded ]
 then
-	grep -v -f $excluded $ampliconFile > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID"/$sampleName/amplicon.filter.txt
+	grep -v -f $excluded $ampliconFile > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.filter.txt
 else
-	ln -s "$ampliconFile" /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID"/$sampleName/amplicon.filter.txt
+	ln -s "$ampliconFile" /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.filter.txt
 fi
 
-awk -F'\t' -v OFS='\t' '{if($10 < 100) print $4,$10}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID"/$sampleName/amplicon.filter.txt \
-> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/coverageAnalysis_out."$coverageID"/$sampleName/amplicon.lessThan100.txt
+awk -F'\t' -v OFS='\t' '{if($10 < 100) print $4,$10}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.filter.txt \
+> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.lessThan100.txt
 
 
 bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s runCompleted

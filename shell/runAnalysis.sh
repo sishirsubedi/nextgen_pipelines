@@ -45,17 +45,17 @@ do
      echo "proton or pgm -- sample id is $sampleID"
 
      #enter variant data
-     variantfile=$(ls /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/variantCaller_out."$vcallerID"/$sampleID/TSVC_variants.split.vep.parse.newVarView.filter.txt)
+     variantfile=$(ls /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/$sampleID/variantCaller_out."$vcallerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt)
      variantstatement="load data local infile '$variantfile' into table data ignore 1 lines (gene, exons, chr, pos, ref, alt, genotype, type, quality, altFreq, readDP, altReadDP, Consequence, sift, PolyPhen, HGVSc, HGVSp, dbSNPID, pubmed) set sampleID = '$ID', assay = '$assayID'"
 
      #amplicon filebash
-     ampliconfile=$(ls /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/coverageAnalysis_out."$coverageID"/$sampleID/amplicon.lessThan100.txt)
+     ampliconfile=$(ls /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.lessThan100.txt)
      coveragestatement="load data local infile '$ampliconfile' into table amplicon (ampliconName, ampliconCov) set sampleID = '$ID', assay = '$assayID'"
 
      #total amplicon number
-     totalAmpliconCount=$(wc -l  /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/coverageAnalysis_out."$coverageID"/$sampleID/amplicon.filter.txt | cut -d ' ' -f 1 )
+     totalAmpliconCount=$(wc -l  /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.filter.txt | cut -d ' ' -f 1 )
      #total failed amplicon number
-     failedAmpliconCount=$(wc -l /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/coverageAnalysis_out."$coverageID"/$sampleID/amplicon.lessThan100.txt | cut -d ' ' -f 1)
+     failedAmpliconCount=$(wc -l /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.lessThan100.txt | cut -d ' ' -f 1)
      ampliconstatement="insert into ampliconCount values ('$ID', '$totalAmpliconCount', '$failedAmpliconCount');"
 
 

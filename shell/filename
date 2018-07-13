@@ -1,0 +1,14 @@
+%CPU %MEM CMD
+ 101  8.2 /opt/bwa/bwa-0.7.12/bwa mem /home/doc/ref/ref_genome/ucsc.hg19.fasta /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R1_001.fastq.gz /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R2_001.fastq.gz
+%CPU %MEM CMD
+ 101  8.2 /opt/bwa/bwa-0.7.12/bwa mem /home/doc/ref/ref_genome/ucsc.hg19.fasta /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R1_001.fastq.gz /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R2_001.fastq.gz
+%CPU %MEM CMD
+ 101  8.2 /opt/bwa/bwa-0.7.12/bwa mem /home/doc/ref/ref_genome/ucsc.hg19.fasta /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R1_001.fastq.gz /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R2_001.fastq.gz
+%CPU %MEM CMD
+ 101  8.2 /opt/bwa/bwa-0.7.12/bwa mem /home/doc/ref/ref_genome/ucsc.hg19.fasta /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R1_001.fastq.gz /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R2_001.fastq.gz
+%CPU %MEM CMD
+ 101  8.2 /opt/bwa/bwa-0.7.12/bwa mem /home/doc/ref/ref_genome/ucsc.hg19.fasta /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R1_001.fastq.gz /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R2_001.fastq.gz
+%CPU %MEM CMD
+ 101  8.2 /opt/bwa/bwa-0.7.12/bwa mem /home/doc/ref/ref_genome/ucsc.hg19.fasta /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R1_001.fastq.gz /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R2_001.fastq.gz
+%CPU %MEM CMD
+ 101  8.2 /opt/bwa/bwa-0.7.12/bwa mem /home/doc/ref/ref_genome/ucsc.hg19.fasta /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R1_001.fastq.gz /home/nextseq/180622_NS500761_0208_AH2YKVAFXY/out1/G007008575_S8_R2_001.fastq.gz

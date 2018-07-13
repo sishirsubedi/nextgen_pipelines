@@ -88,9 +88,17 @@ if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName ]
 then
 	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName
 fi
+chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName
 
-exec >  >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/process.log)
-exec 2> >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/process.log >&2)
+if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID ]
+then
+	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID
+fi
+chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID
+
+
+exec >  >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/process.log)
+exec 2> >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/process.log >&2)
 
 # running ionPipeline scripts based on assay and instrument
 if [ $assayID == "neuro" ] && [ $instrumentID == "proton" ]
@@ -122,10 +130,10 @@ then
   queueID : $queueID "
 
 	bash /home/pipelines/master/shell/ionPipeline.sh -r $runID -s $sampleID -c $coverageID -v $callerID -i $instrumentID -n $environmentID -q $queueID
-
 	exit
 
 else
+	
 	echo "Error: Failed ionPipeline for:
 	assayID : $assayID
 	instrumentID : $instrumentID
