@@ -48,24 +48,39 @@ if test $# -gt 0
 fi
 
 
+function updateStatus() {
+
+user=hhadmin
+password=ngs3127
+database=test
+insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
+mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
+}
+
+
 if [ $instrumentID == "miseq" ]
 then
 		if [ ! -d /home/$instrumentID/*_"$runID"_*/Data/Intensities/BaseCalls/Alignment/ ]
 		then
 		echo "Error: result folder for run ID:$runID not found"
+		updateStatus "$queueID" "ERROR:alignmentFolder" "$environmentID"
+
 		exit
 		fi
 
 		if [ ! -f /home/$instrumentID/*_"$runID"_*/Data/Intensities/BaseCalls/Alignment/AmpliconCoverage_M1.tsv ]
 		then
 		echo "Error: amplicon file for run ID:$runID not found"
+		updateStatus "$queueID" "ERROR:ampliconcoverage_file" "$environmentID"
+
 		exit
 	  fi
 elif [ $instrumentID == "nextseq" ]
 then
-		if [ ! -d /home/$instrumentID/*_"$runID"_*/]
+		if [ ! -d /home/$instrumentID/*_"$runID"_*/ ]
 		then
 		echo "Error: result folder for run ID:$runID not found"
+		updateStatus "$queueID" "ERROR:runID_file" "$environmentID"
 		exit
 	  fi
 fi
@@ -73,12 +88,16 @@ fi
 if [ -z $instrumentID ]
 then
 echo "Error: instrument must be specificed with -i option"
+updateStatus "$queueID" "ERROR:instrument" "$environmentID"
+
 exit
 fi
 
 if [ -z $ampliconRef ] && [ ! -z $excluded ]
 then
 echo "Error: amplicon file must be specified if the excluded list is specified"
+updateStatus "$queueID" "ERROR:amp_exc" "$environmentID"
+
 exit
 fi
 
@@ -86,18 +105,24 @@ fi
 if [ ! -f $ampliconRef ]
 then
 echo "Error: reference amplicon file not found"
+updateStatus "$queueID" "ERROR:amplicon"  "$environmentID"
+
 exit
 fi
 
 if [ ! -z $excluded ] && [ ! -f $excluded ]
 then
 echo "Error: excluded amplicon list not found"
+updateStatus "$queueID" "ERROR:excluded"  "$environmentID"
+
 exit
 fi
 
 if [ -z $runID ] || [ -z $instrumentID ]
 then
 echo "Error: -r runID and -i instrumentID are the required parameters"
+updateStatus "$queueID" "ERROR:run_ins"  "$environmentID"
+
 exit
 fi
 
@@ -156,18 +181,24 @@ then
 	echo "----------> File is $file"
 	echo "----------> File is $ampliconRef"
 
-  bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s bedtools
+  updateStatus "$queueID" "bedtools"  "$environmentID"
 
 	##filter vcf against ampliconRef
 	if [ ! -z $ampliconRef ]
 	then
 	/opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $file -b $ampliconRef > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf
 	else
-	ln -s $file /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleName.amplicon.vcf
+	ln -s $file /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf
 	fi
 
+	if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf ]
+	then
+		echo "Error:bedtools"
+		updateStatus "$queueID" "ERROR:bedtools"  "$environmentID"
+	exit
+	fi
 
-	bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s vep
+	updateStatus "$queueID" "VEP"  "$environmentID"
 
 	echo "running VEP"
 	/home/pipelines/master/perl/bin/perl \
@@ -189,7 +220,15 @@ then
 	--gmaf \
 	--maf_1kg
 
-  bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s parseVEP
+	if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.vcf ]
+	then
+		echo "Error:vep"
+		updateStatus "$queueID" "ERROR:VEP"  "$environmentID"
+	exit
+	fi
+
+
+  updateStatus "$queueID" "parseVEP"  "$environmentID"
 
 	echo "parse VEP results for new varView"
 	python /home/pipelines/master/python/parseVEP.py \
@@ -224,13 +263,13 @@ then
 	awk '$2 < 100' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.txt > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.lessThan100.txt
 
 
-  bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s runCompleted
+  updateStatus  "$queueID" "UpdateDatabase"  "$environmentID"
 
 elif [ $instrumentID == "nextseq" ]
 then
 
-	runFolder=$(ls -d /home/$instrument/*_"$runID"_*)
-	post=${runFolder##/home/$instrument/}
+	runFolder=$(ls -d /home/$instrumentID/*_"$runID"_*)
+	post=${runFolder##/home/$instrumentID/}
 	runName=${post%%/Data/Intensities/BaseCalls/Alignment*}
 
 
@@ -262,7 +301,7 @@ then
 
 	###Start processing file
 	#for file in $runFolder/*.vcf
-	for file in /home/environments/$environmentID/nextSeq_heme/$runName/$sampleID/*.vcf
+	for file in /home/environments/$environmentID/nextseq_heme/$runName/$sampleID/"$sampleID".comb.vcf
 	do
 		echo $file
 		if  [[ ${file} =~ $sampleID ]]
@@ -271,7 +310,7 @@ then
 		fi
 	done
 
-	echo "testing $file"
+	echo "file is $file"
 
 	if [[ $file =~ .comb.vcf ]]
 		##if the vcf is in the raw machine output form
@@ -285,23 +324,32 @@ then
 		echo "sampleName is $sampleName"
 
 
-    bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s bedtools
+    updateStatus "$queueID" "bedtools"  "$environmentID"
 
 			##filter vcf against ampliconRef
 		if [ ! -z $ampliconRef ]
 			then
-			/opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $file -b $ampliconRef > /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf
+			/opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $file -b $ampliconRef > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf
 		else
-			ln -s $file /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf         #create symbolic link
+			ln -s $file /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf         #create symbolic link
 		fi
 
-    bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s vep
+		if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf ]
+	 	then
+	 		echo "Error:bedtools"
+	 		updateStatus "$queueID" "ERROR:bedtools"  "$environmentID"
+	 	exit
+	 	fi
+
+
+
+    updateStatus "$queueID" "VEP"   "$environmentID"
 
 		echo "running VEP"
 		/home/pipelines/master/perl/bin/perl \
 		/opt/vep/ensembl-tools-release-83/scripts/variant_effect_predictor/variant_effect_predictor.pl \
-			-i /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf \
-			-o /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.vcf \
+			-i /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vcf \
+			-o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.vcf \
 			--offline \
 			--dir_cache /opt/vep/ensembl-tools-release-83/cache/ \
 			--sift p \
@@ -321,41 +369,51 @@ then
 			echo "parse VEP results for new varView"
 			python /home/pipelines/master/python/parseVEP.py \
 			parseIlluminaNextseq \
-			-I /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.vcf \
-			-o /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.txt
+			-I /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.vcf \
+			-o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.txt
+
+			if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.txt ]
+			then
+				echo "Error:vep"
+				updateStatus "$queueID" "ERROR:VEP"  "$environmentID"
+			exit
+			fi
+
+
 
 			echo "filter VEP results"
 			shopt -s nocasematch
 			if [[ $sampleName =~ horizon ]]
 				then
-				awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $11 >=100) print}' /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.txt \
-				> /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.filter.txt
+				awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $11 >=100) print}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.txt \
+				> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.filter.txt
 			else
-				awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $11 >=100) print}' /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.txt \
-				> /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.filter.txt
+				awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $11 >=100) print}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.txt \
+				> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.filter.txt
 			fi
 
 			echo "running sed"
-			sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.filter.txt
+			sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.vep.parse.filter.txt
 
 
-      bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s samtools
+      updateStatus "$queueID" "samtools"  "$environmentID"
 
 			echo "generating "$sampleName" ampliconFile"
-			/opt/samtools-1.4/samtools-1.4/samtools bedcov  /doc/ref/Heme/trusight-myeloid-amplicon-track.excludedNew.bed /home/environments/$environmentID/"$instrument"_heme/$runName/$sampleID/$sampleName.sort.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.samtools.coverageDepth
-			ampliconFile=$(ls /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleName.samtools.coverageDepth)
+			/opt/samtools-1.4/samtools-1.4/samtools bedcov  /doc/ref/Heme/trusight-myeloid-amplicon-track.excludedNew.bed /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID/$sampleName.sort.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.samtools.coverageDepth
+			ampliconFile=$(ls /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.samtools.coverageDepth)
+
 			###filter amplicon file
 			if [ ! -z $excluded ]
 			then
-			grep -v -f $excluded $ampliconFile > /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.filtered.txt
+			grep -v -f $excluded $ampliconFile > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.filtered.txt
 			else
-			ln -s $ampliconFile /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.filtered.txt
+			ln -s $ampliconFile /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.filtered.txt
 			fi
 
 
 
 			##split amplicon file
-			sampleCol=$(head -n 1 /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.filtered.txt | awk -F"\t" '{print NF; exit}')
+			sampleCol=$(head -n 1 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.filtered.txt | awk -F"\t" '{print NF; exit}')
 			echo "amplicon file has $sampleCol columns"
 			if [ $sampleCol != "2" ]
 				then
@@ -363,14 +421,34 @@ then
 			fi
 
 
-			cut -f 1,$sampleCol /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.filtered.txt > /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.txt
-			awk '$2 < 100' /home/environments/$environmentID/"$instrument"Analysis/$runName/$sampleID/$sampleName.amplicon.txt > /home/environments/$environmentID/"$instrument"Analysis/$sampleID/$runName/$sampleName.amplicon.lessThan100.txt
+			cut -f 1,$sampleCol /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.filtered.txt > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.txt
+			awk '$2 < 100' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.txt > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/$sampleName.amplicon.lessThan100.txt
 
-			bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s runCompleted
+			updateStatus "$queueID" "UpdateDatabase"  "$environmentID"
 
 	fi
-	echo "Pipeline Finished!"
 
 
 fi
-echo "Pipeline Finished!"
+
+#### wait for database update
+
+sleep 3
+
+################################################################################
+# updating analysis results
+################################################################################
+user=hhadmin
+password=ngs3127
+database="$environmentID"
+
+# update analysis
+analysischeck_statement="select queueID,plStatus from pipelineStatus where plStatus='UpdateDatabase' and queueID=$queueID limit 1;"
+while  read -r queueID plStatus;
+do
+  newStatus='UpdatingDatabase'
+  echo "Running analysis"
+  updateanalysis_statement="update pipelineStatus set plStatus='$newStatus' where queueID=$queueID and plStatus='$plStatus'"
+  mysql --user="$user" --password="$password" --database="$database" --execute="$updateanalysis_statement"
+  bash /home/pipelines/master/shell/runAnalysis.sh -q $queueID -e $environmentID
+done< <(mysql --user="$user" --password="$password" --database="$database" --execute="$analysischeck_statement" -N)

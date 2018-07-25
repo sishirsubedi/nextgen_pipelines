@@ -12,6 +12,7 @@ then
 	exit
 fi
 
+
 if test $# -gt 0
 	then
 	while getopts :r:s:a:i:e:q: opt
@@ -45,6 +46,17 @@ if test $# -gt 0
 	shift $((OPTIND-1))
 fi
 
+
+function updateStatus() {
+
+user=hhadmin
+password=ngs3127
+database=$3
+insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
+mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
+}
+
+
 if [ -z $runID ] || [ -z $sampleID ] || [ -z $assayID ] || [ -z $instrumentID ] || [ -z $environmentID ]
 then
 	echo "Error: Please input required parameters-"
@@ -53,6 +65,7 @@ then
 	echo "-a assayID"
 	echo "-i instrumentID"
 	echo "-e environmentID"
+	  updateStatus "$queueID" "ERROR:parameters" "$environmentID"
 	exit
 fi
 
@@ -125,7 +138,7 @@ then
 	environmentID : $environmentID"
 
 
-  bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s bcl2fastq
+  updateStatus "$queueID" "bcl2fastq" "$environmentID"
 
 	if [ ! -f /home/$instrumentID/*_"$runID"_*/out1/"$sampleID"*_R1_001.fastq.gz ]
 	then
@@ -133,7 +146,17 @@ then
 		bcl2fastq --no-lane-splitting --runfolder-dir $runFolder --output-dir $runFolder/out1
 	fi
 
-  bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s varscanPE
+
+	if [ ! -f /home/$instrumentID/*_"$runID"_*/out1/"$sampleID"*_R1_001.fastq.gz ]
+	then
+		echo "Error:bcl2fastq"
+		updateStatus "$queueID" "ERROR:bcl2fastq" "$environmentID"
+	exit
+	fi
+
+
+
+  updateStatus "$queueID" "varscanPE" "$environmentID"
 
 	##Aligning fastq files
 	echo "Aligning fastq files"

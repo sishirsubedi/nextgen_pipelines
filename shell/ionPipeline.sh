@@ -13,6 +13,7 @@ then
 	exit
 fi
 
+
 if test $# -gt 0
 	then
 	while getopts :r:s:c:v:i:e:a:n:q: opt
@@ -56,31 +57,51 @@ if test $# -gt 0
 fi
 
 
+
+function updateStatus() {
+
+user=hhadmin
+password=ngs3127
+database=$3
+insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
+mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
+}
+
+
+
+
+
+
+
 echo "running pipeline for queue: $queueID"
 
 ###check input parameter for correctness
 if [ $instrumentID != "pgm" ] && [ $instrumentID != "proton" ]
 then
 	echo "Error: Only pgm or proton are valid input for -i"
-exit
+	  updateStatus "$queueID" "ERROR:instrument" "$environmentID"
+  exit
 fi
 
 if [ -z $ampliconRef ] && [ ! -z $excluded ]
 then
 	echo "Error: amplicon file must be specified if the excluded list is specified"
-exit
+  updateStatus "$queueID" "ERROR:amp_exc" "$environmentID"
+	exit
 fi
 
 
 if [ ! -f $ampliconRef ]
 then
 	echo "Error: reference amplicon file not found"
+	  updateStatus "$queueID" "ERROR:amplicon" "$environmentID"
 exit
 fi
 
 if [ ! -z $excluded ] && [ ! -f $excluded ]
 then
 	echo "Error: excluded amplicon list not found"
+	  updateStatus "$queueID" "ERROR:excluded" "$environmentID"
 exit
 fi
 
@@ -93,6 +114,7 @@ then
 	echo "-v callerID: variant caller"
 	echo "-i instrumentID"
 	echo "-e environmentID"
+	  updateStatus "$queueID" "ERROR:parameters" "$environmentID"
 	exit
 fi
 
@@ -171,7 +193,7 @@ echo " sample_ID is $sample_ID"
 echo "----------> File is $file"
 echo "----------> File is $ampliconRef"
 
-bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s bedtools
+updateStatus "$queueID" "bedtools" "$environmentID"
 
 if [ ! -z $ampliconRef ]
 then
@@ -181,7 +203,14 @@ else
 fi
 
 
-bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s splitVcf
+if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.filter.vcf ]
+then
+	echo "Error: bedtools"
+	  updateStatus "$queueID" "ERROR:bedtools" "$environmentID"
+exit
+fi
+
+updateStatus "$queueID" "splitVcf" "$environmentID"
 
 echo "split multiple alt alleles into different lines"
 python /home/pipelines/master/python/splitVcf.py \
@@ -189,7 +218,16 @@ python /home/pipelines/master/python/splitVcf.py \
 -f FAO,FDP,AF \
 -o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vcf
 
-bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s vep
+
+if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vcf ]
+then
+	echo "Error: splitVcf"
+	  updateStatus "$queueID" "ERROR:splitVcf" "$environmentID"
+exit
+fi
+
+
+updateStatus "$queueID" "VEP" "$environmentID"
 
 echo "running VEP"
 /home/pipelines/master/perl/bin/perl \
@@ -219,6 +257,15 @@ parseIonNewVarView \
 -I /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.vcf \
 -o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt
 
+if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt ]
+then
+	echo "Error: vep"
+	  updateStatus "$queueID" "ERROR:VEP" "$environmentID"
+exit
+fi
+
+
+
 echo "filter VEP results"
 shopt -s nocasematch
 if [[ $sample_ID =~ horizon ]]
@@ -246,6 +293,31 @@ awk -F'\t' -v OFS='\t' '{if($10 < 100) print $4,$10}' /home/environments/$enviro
 > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.lessThan100.txt
 
 
-bash /home/pipelines/master/shell/updatepipelineStatus.sh -q $queueID -s runCompleted
+updateStatus "$queueID" "UpdateDatabase" "$environmentID"
 
-echo "Pipeline Finished!"
+
+#### wait for database update
+
+sleep 3
+
+################################################################################
+# updating analysis results
+################################################################################
+user=hhadmin
+password=ngs3127
+database=$environmentID
+
+# update analysis
+analysischeck_statement="select queueID,plStatus from pipelineStatus where plStatus='UpdateDatabase' and queueID=$queueID limit 1;"
+while  read -r queueID plStatus;
+do
+
+	echo "Running analysis"
+
+  newStatus='UpdatingDatabase'
+  updateanalysis_statement="update pipelineStatus set plStatus='$newStatus' where queueID=$queueID and plStatus='$plStatus'"
+  mysql --user="$user" --password="$password" --database="$database" --execute="$updateanalysis_statement"
+
+  bash /home/pipelines/master/shell/runAnalysis.sh -q $queueID -e $environmentID
+
+done< <(mysql --user="$user" --password="$password" --database="$database" --execute="$analysischeck_statement" -N)

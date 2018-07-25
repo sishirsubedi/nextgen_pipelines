@@ -14,6 +14,7 @@ then
 	exit
 fi
 
+
 if test $# -gt 0
 	then
 	while getopts :r:s:c:v:a:i:e:q: opt
@@ -53,6 +54,22 @@ if test $# -gt 0
 	shift $((OPTIND-1))
 fi
 
+
+
+
+function updateStatus() {
+
+user=hhadmin
+password=ngs3127
+database=$3
+insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
+mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
+}
+
+
+
+
+
 if [ -z $runID ] || [ -z $sampleID ] || [ -z $coverageID ] || [ -z $callerID ] || [ -z $assayID ] || [ -z $instrumentID ] || [ -z $environmentID ]
 then
 	echo "Error: Please input required parameters-"
@@ -63,18 +80,23 @@ then
 	echo "-a assayID"
 	echo "-i instrumentID"
 	echo "-e environmentID"
+
+   #ERROR:parameters
+
 	exit
 fi
 
 if [ ! -d /home/$instrumentID/*"$runID"/plugin_out/coverageAnalysis_out."$coverageID"/ ]
 then
 	echo "coverage folder for run ID:$runID; coverage ID:$coverageID not found"
+    updateStatus "$queueID" "ERROR:Instrument_coverageID" "$environmentID"
 	exit
 fi
 
 if [ ! -d /home/$instrumentID/*"$runID"/plugin_out/variantCaller_out."$callerID"/ ]
 then
 	echo "variant folder for run ID:$runID; variant caller ID:$callerID not found"
+	  updateStatus "$queueID" "ERROR:Instrument_callerID" $environmentID
 	exit
 fi
 
@@ -133,7 +155,7 @@ then
 	exit
 
 else
-	
+
 	echo "Error: Failed ionPipeline for:
 	assayID : $assayID
 	instrumentID : $instrumentID
@@ -144,6 +166,7 @@ else
 	environmentID : $environmentID
 	queueID : $queueID "
 	echo "Not valid assay - $assayID and instrument - $instrumentID. Process Terminated."
+    updateStatus "$queueID" "ERROR:assay_inst" $environmentID
 	exit
 fi
 
