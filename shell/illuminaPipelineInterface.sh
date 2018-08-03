@@ -9,13 +9,15 @@ then
 	echo "-i instrumentID"
 	echo "-e environmentID"
 	echo "-q queueID"
+	echo "-u user"
+	echo "-p password"
 	exit
 fi
 
 
 if test $# -gt 0
 	then
-	while getopts :r:s:a:i:e:q: opt
+	while getopts :r:s:a:i:e:q:u:p: opt
 	do
 	case $opt in
 	r)
@@ -36,6 +38,12 @@ if test $# -gt 0
 	q)
 		queueID=$OPTARG
 		;;
+	u)
+		user=$OPTARG
+		;;
+	p)
+		password=$OPTARG
+		;;
 	:)
 		echo "Option -$OPTARG requires an argument."
 		;;
@@ -49,8 +57,8 @@ fi
 
 function updateStatus() {
 
-user=hhadmin
-password=ngs3127
+user=$4
+password=$5
 database=$3
 insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
 mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
@@ -65,7 +73,7 @@ then
 	echo "-a assayID"
 	echo "-i instrumentID"
 	echo "-e environmentID"
-	  updateStatus "$queueID" "ERROR:parameters" "$environmentID"
+	  updateStatus "$queueID" "ERROR:parameters" "$environmentID"  "$user"  "$password"
 	exit
 fi
 
@@ -104,7 +112,7 @@ then
 	sampleID : $sampleID
 	environmentID : $environmentID"
 
-	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID -q $queueID
+	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID -q $queueID -u $user -p $password
 	exit
 
 elif [ $assayID == "heme" ] && [ $instrumentID == "nextseq" ]
@@ -138,25 +146,15 @@ then
 	environmentID : $environmentID"
 
 
-  updateStatus "$queueID" "bcl2fastq" "$environmentID"
-
 	if [ ! -f /home/$instrumentID/*_"$runID"_*/out1/"$sampleID"*_R1_001.fastq.gz ]
 	then
-		echo "Fastq files not found. Converting bcl to fastq"
-		bcl2fastq --no-lane-splitting --runfolder-dir $runFolder --output-dir $runFolder/out1
+		echo "Fastq files not found"
+		updateStatus "$queueID" "ERROR:fastqNotFound" "$environmentID" "$user"  "$password"
+		#bcl2fastq --no-lane-splitting --runfolder-dir $runFolder --output-dir $runFolder/out1
+		exit
 	fi
 
-
-	if [ ! -f /home/$instrumentID/*_"$runID"_*/out1/"$sampleID"*_R1_001.fastq.gz ]
-	then
-		echo "Error:bcl2fastq"
-		updateStatus "$queueID" "ERROR:bcl2fastq" "$environmentID"
-	exit
-	fi
-
-
-
-  updateStatus "$queueID" "varscanPE" "$environmentID"
+  updateStatus "$queueID" "varscanPE" "$environmentID" "$user"  "$password"
 
 	##Aligning fastq files
 	echo "Aligning fastq files"
@@ -171,7 +169,7 @@ then
 
 	# ##Variant calling
 	echo "Starting variant calling"
-	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID -q $queueID
+	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID -q $queueID -u $user -p $password
 
   exit
 

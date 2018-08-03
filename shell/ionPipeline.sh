@@ -10,13 +10,15 @@ then
 	echo "-a amplicon bed file (optional, required if -e is specified. Only variants within ranges specified in this file will be analysed) "
 	echo "-n environmentID"
 	echo "-q queueID"
+	echo "-u user"
+	echo "-p password"
 	exit
 fi
 
 
 if test $# -gt 0
 	then
-	while getopts :r:s:c:v:i:e:a:n:q: opt
+	while getopts :r:s:c:v:i:e:a:n:q:u:p: opt
 	do
 	case $opt in
 		r)
@@ -44,8 +46,14 @@ if test $# -gt 0
 		  environmentID=$OPTARG
 		  ;;
 		q)
-			  queueID=$OPTARG
+			queueID=$OPTARG
 			  ;;
+		u)
+			user=$OPTARG
+				;;
+		p)
+			 password=$OPTARG
+				;;
 		:)
 			echo "Option -$OPTARG requires an argument."
 			;;
@@ -60,8 +68,8 @@ fi
 
 function updateStatus() {
 
-user=hhadmin
-password=ngs3127
+user=$4
+password=$5
 database=$3
 insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
 mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
@@ -79,14 +87,14 @@ echo "running pipeline for queue: $queueID"
 if [ $instrumentID != "pgm" ] && [ $instrumentID != "proton" ]
 then
 	echo "Error: Only pgm or proton are valid input for -i"
-	  updateStatus "$queueID" "ERROR:instrument" "$environmentID"
+	  updateStatus "$queueID" "ERROR:instrument" "$environmentID" "$user"  "$password"
   exit
 fi
 
 if [ -z $ampliconRef ] && [ ! -z $excluded ]
 then
 	echo "Error: amplicon file must be specified if the excluded list is specified"
-  updateStatus "$queueID" "ERROR:amp_exc" "$environmentID"
+  updateStatus "$queueID" "ERROR:amp_exc" "$environmentID" "$user"  "$password"
 	exit
 fi
 
@@ -94,14 +102,14 @@ fi
 if [ ! -f $ampliconRef ]
 then
 	echo "Error: reference amplicon file not found"
-	  updateStatus "$queueID" "ERROR:amplicon" "$environmentID"
+	  updateStatus "$queueID" "ERROR:amplicon" "$environmentID" "$user"  "$password"
 exit
 fi
 
 if [ ! -z $excluded ] && [ ! -f $excluded ]
 then
 	echo "Error: excluded amplicon list not found"
-	  updateStatus "$queueID" "ERROR:excluded" "$environmentID"
+	  updateStatus "$queueID" "ERROR:excluded" "$environmentID" "$user"  "$password"
 exit
 fi
 
@@ -114,7 +122,7 @@ then
 	echo "-v callerID: variant caller"
 	echo "-i instrumentID"
 	echo "-e environmentID"
-	  updateStatus "$queueID" "ERROR:parameters" "$environmentID"
+	  updateStatus "$queueID" "ERROR:parameters" "$environmentID" "$user"  "$password"
 	exit
 fi
 
@@ -193,7 +201,7 @@ echo " sample_ID is $sample_ID"
 echo "----------> File is $file"
 echo "----------> File is $ampliconRef"
 
-updateStatus "$queueID" "bedtools" "$environmentID"
+updateStatus "$queueID" "bedtools" "$environmentID" "$user"  "$password"
 
 if [ ! -z $ampliconRef ]
 then
@@ -206,11 +214,11 @@ fi
 if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.filter.vcf ]
 then
 	echo "Error: bedtools"
-	  updateStatus "$queueID" "ERROR:bedtools" "$environmentID"
+	  updateStatus "$queueID" "ERROR:bedtools" "$environmentID" "$user"  "$password"
 exit
 fi
 
-updateStatus "$queueID" "splitVcf" "$environmentID"
+updateStatus "$queueID" "splitVcf" "$environmentID" "$user"  "$password"
 
 echo "split multiple alt alleles into different lines"
 python /home/pipelines/master/python/splitVcf.py \
@@ -222,12 +230,12 @@ python /home/pipelines/master/python/splitVcf.py \
 if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vcf ]
 then
 	echo "Error: splitVcf"
-	  updateStatus "$queueID" "ERROR:splitVcf" "$environmentID"
+	  updateStatus "$queueID" "ERROR:splitVcf" "$environmentID" "$user"  "$password"
 exit
 fi
 
 
-updateStatus "$queueID" "VEP" "$environmentID"
+updateStatus "$queueID" "VEP" "$environmentID" "$user"  "$password"
 
 echo "running VEP"
 /home/pipelines/master/perl/bin/perl \
@@ -260,7 +268,7 @@ parseIonNewVarView \
 if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt ]
 then
 	echo "Error: vep"
-	  updateStatus "$queueID" "ERROR:VEP" "$environmentID"
+	  updateStatus "$queueID" "ERROR:VEP" "$environmentID" "$user"  "$password"
 exit
 fi
 
@@ -293,7 +301,7 @@ awk -F'\t' -v OFS='\t' '{if($10 < 100) print $4,$10}' /home/environments/$enviro
 > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.lessThan100.txt
 
 
-updateStatus "$queueID" "UpdateDatabase" "$environmentID"
+updateStatus "$queueID" "UpdateDatabase" "$environmentID" "$user"  "$password"
 
 
 #### wait for database update
@@ -303,9 +311,6 @@ sleep 3
 ################################################################################
 # updating analysis results
 ################################################################################
-user=hhadmin
-password=ngs3127
-database=$environmentID
 
 # update analysis
 analysischeck_statement="select queueID,plStatus from pipelineStatus where plStatus='UpdateDatabase' and queueID=$queueID limit 1;"
@@ -316,8 +321,8 @@ do
 
   newStatus='UpdatingDatabase'
   updateanalysis_statement="update pipelineStatus set plStatus='$newStatus' where queueID=$queueID and plStatus='$plStatus'"
-  mysql --user="$user" --password="$password" --database="$database" --execute="$updateanalysis_statement"
+  mysql --user="$user" --password="$password" --database="$environmentID" --execute="$updateanalysis_statement"
 
-  bash /home/pipelines/master/shell/runAnalysis.sh -q $queueID -e $environmentID
+  bash /home/pipelines/master/shell/runAnalysis.sh -q $queueID -e $environmentID -u $user -p $password
 
-done< <(mysql --user="$user" --password="$password" --database="$database" --execute="$analysischeck_statement" -N)
+done< <(mysql --user="$user" --password="$password" --database="$environmentID" --execute="$analysischeck_statement" -N)

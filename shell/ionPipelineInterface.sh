@@ -11,13 +11,15 @@ then
 	echo "-i instrumentID"
 	echo "-e environmentID"
 	echo "-q queueID"
+	echo "-u user"
+	echo "-p password"
 	exit
 fi
 
 
 if test $# -gt 0
 	then
-	while getopts :r:s:c:v:a:i:e:q: opt
+	while getopts :r:s:c:v:a:i:e:q:u:p: opt
 	do
 	case $opt in
 	r)
@@ -44,6 +46,12 @@ if test $# -gt 0
   q)
 		queueID=$OPTARG
 		;;
+		u)
+		  user=$OPTARG
+		  ;;
+		p)
+		  password=$OPTARG
+		  ;;
 	:)
 		echo "Option -$OPTARG requires an argument."
 		;;
@@ -59,8 +67,8 @@ fi
 
 function updateStatus() {
 
-user=hhadmin
-password=ngs3127
+user=$4
+password=$5
 database=$3
 insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
 mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
@@ -89,14 +97,14 @@ fi
 if [ ! -d /home/$instrumentID/*"$runID"/plugin_out/coverageAnalysis_out."$coverageID"/ ]
 then
 	echo "coverage folder for run ID:$runID; coverage ID:$coverageID not found"
-    updateStatus "$queueID" "ERROR:Instrument_coverageID" "$environmentID"
+    updateStatus "$queueID" "ERROR:Instrument_coverageID" "$environmentID" "$user"  "$password"
 	exit
 fi
 
 if [ ! -d /home/$instrumentID/*"$runID"/plugin_out/variantCaller_out."$callerID"/ ]
 then
 	echo "variant folder for run ID:$runID; variant caller ID:$callerID not found"
-	  updateStatus "$queueID" "ERROR:Instrument_callerID" $environmentID
+	  updateStatus "$queueID" "ERROR:Instrument_callerID" $environmentID "$user"  "$password"
 	exit
 fi
 
@@ -135,7 +143,7 @@ then
 	environmentID : $environmentID
 	queueID : $queueID "
 
-	bash /home/pipelines/master/shell/ionPipeline.sh -r $runID -s $sampleID -c $coverageID -v $callerID -i $instrumentID  -e /home/doc/ref/neuralRef/excludedAmplicon.txt -a /home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed -n $environmentID -q $queueID
+	bash /home/pipelines/master/shell/ionPipeline.sh -r $runID -s $sampleID -c $coverageID -v $callerID -i $instrumentID  -e /home/doc/ref/neuralRef/excludedAmplicon.txt -a /home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed -n $environmentID -q $queueID -u $user -p $password
 
 	exit
 
@@ -151,7 +159,7 @@ then
 	environmentID : $environmentID
   queueID : $queueID "
 
-	bash /home/pipelines/master/shell/ionPipeline.sh -r $runID -s $sampleID -c $coverageID -v $callerID -i $instrumentID -n $environmentID -q $queueID
+	bash /home/pipelines/master/shell/ionPipeline.sh -r $runID -s $sampleID -c $coverageID -v $callerID -i $instrumentID -n $environmentID -q $queueID -u $user -p $password
 	exit
 
 else
@@ -166,7 +174,7 @@ else
 	environmentID : $environmentID
 	queueID : $queueID "
 	echo "Not valid assay - $assayID and instrument - $instrumentID. Process Terminated."
-    updateStatus "$queueID" "ERROR:assay_inst" $environmentID
+    updateStatus "$queueID" "ERROR:assay_inst" $environmentID "$user"  "$password"
 	exit
 fi
 

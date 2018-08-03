@@ -5,21 +5,29 @@
 if [ $# -eq 0 ]
 then
 	echo "-q queueID"
-	echo "-e invironmentID"
+	echo "-e environmentID"
+	echo "-u user"
+	echo "-p password"
 	exit
 fi
 
 if test $# -gt 0
 	then
-	while getopts :q:e: opt
+	while getopts :q:e:u:p: opt
 	do
 	case $opt in
   q)
 		queueID=$OPTARG
 		;;
-		e)
-			environmentID=$OPTARG
-			;;
+	e)
+	  environmentID=$OPTARG
+		;;
+	u)
+	  user=$OPTARG
+		;;
+	p)
+	 password=$OPTARG
+	  ;;
 	:)
 		echo "Option -$OPTARG requires an argument."
 		;;
@@ -31,17 +39,13 @@ if test $# -gt 0
 fi
 
 
-###database credentials --
-user=hhadmin
-password=ngs3127
-database="$environmentID"
 
 
 function updateStatus() {
 
-user=hhadmin
-password=ngs3127
-database=test
+user=$4
+password=$5
+database=$3
 insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
 mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
 }
@@ -54,7 +58,7 @@ variantstatement=""
 coveragestatement=""
 ampliconstatement=""
 
-mysql --user="$user" --password="$password" --database="$database" --execute="$statement" -N | while  read -r ID queueID  runID  sampleID coverageID vcallerID assayID instrumentID environmentID status;
+mysql --user="$user" --password="$password" --database="$environmentID" --execute="$statement" -N | while  read -r ID queueID  runID  sampleID coverageID vcallerID assayID instrumentID environmentID status;
 do
   echo " $ID : $queueID  :$runID  :$sampleID :$coverageID :$vcallerID :$assayID :$instrumentID :$environmentID: $status"
 
@@ -67,7 +71,7 @@ do
      variantfile=$(ls /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/$sampleID/variantCaller_out."$vcallerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt)
 
 		 if [ ! -f $variantfile ]; then
-		 		  updateStatus "$queueID" "ERROR:VariantFile" "$environmentID"
+		 		  updateStatus "$queueID" "ERROR:VariantFile" "$environmentID" "$user"  "$password"
           echo "Error Analsysis variant file not found !"
 					exit
 		 fi
@@ -78,12 +82,12 @@ do
      ampliconfile=$(ls /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.lessThan100.txt)
 
 		 if [ ! -f $ampliconfile ]; then
-					 updateStatus "$queueID" "ERROR:AmpliconFile" "$environmentID"
+					 updateStatus "$queueID" "ERROR:AmpliconFile" "$environmentID" "$user"  "$password"
 					 echo "Error Analsysis amplicon file not found !"
 					exit
 		 fi
 
-		 coveragestatement="load data local infile '$ampliconfile' into table amplicon (ampliconName, ampliconCov) set sampleID = '$ID', assay = '$assayID'"
+		 coveragestatement="load data local infile '$ampliconfile' into table amplicon ( ampliconName, ampliconCov ) set sampleID='$ID' "
 
      #total amplicon number
      totalAmpliconCount=$(wc -l  /home/environments/$environmentID/"$instrumentID"Analysis/*$runID/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.filter.txt | cut -d ' ' -f 1 )
@@ -102,7 +106,7 @@ do
      variantfile=$(ls /home/environments/$environmentID/"$instrumentID"Analysis/*_"$runID"_*/$sampleID/$sampleID.amplicon.vep.parse.filter.txt)
 
 		 if [ ! -f $variantfile ]; then
-					 updateStatus "$queueID" "ERROR:VariantFile" "$environmentID"
+					 updateStatus "$queueID" "ERROR:VariantFile" "$environmentID" "$user"  "$password"
 					 echo "Error Analsysis variant file not found !"
 					exit
 		 fi
@@ -113,12 +117,12 @@ do
      ampliconfile=$(ls /home/environments/$environmentID/"$instrumentID"Analysis/*_"$runID"_*/$sampleID/$sampleID.amplicon.lessThan100.txt)
 
 		 if [ ! -f $ampliconfile ]; then
-					 updateStatus "$queueID" "ERROR:AmpliconFile" "$environmentID"
+					 updateStatus "$queueID" "ERROR:AmpliconFile" "$environmentID" "$user"  "$password"
 					 echo "Error Analsysis amplicon file not found !"
 					exit
 		 fi
 
-		 coveragestatement="load data local infile '$ampliconfile' into table amplicon (ampliconName, ampliconCov) set sampleID = '$ID', assay = '$assayID'"
+		 coveragestatement="load data local infile '$ampliconfile' into table amplicon (ampliconName, ampliconCov) set sampleID = '$ID' "
 
      #total amplicon number
      totalAmpliconCount=$(wc -l  /home/environments/$environmentID/"$instrumentID"Analysis/*_"$runID"_*/$sampleID/$sampleID.amplicon.txt | cut -d ' ' -f 1 )
@@ -128,15 +132,15 @@ do
 
   fi
 
-mysql --user="$user" --password="$password" --database="$database" --execute="$variantstatement"
-mysql --user="$user" --password="$password" --database="$database" --execute="$coveragestatement"
-mysql --user="$user" --password="$password" --database="$database" --execute="$ampliconstatement"
+mysql --user="$user" --password="$password" --database="$environmentID" --execute="$variantstatement"
+mysql --user="$user" --password="$password" --database="$environmentID" --execute="$coveragestatement"
+mysql --user="$user" --password="$password" --database="$environmentID" --execute="$ampliconstatement"
 
 
 #### get pipeline entering user
 
 usergetstatement="select email from networkIDTOemail where networkID in (select enteredBy from Samples as t1  join sampleAnalysisQueue as t2 on  t1.ID=t2.ID where t2.queueID ='$queueID');"
-useremail=$(mysql --user="$user" --password="$password" --database="$database" --execute="$usergetstatement" -N)
+useremail=$(mysql --user="$user" --password="$password" --database="$environmentID" --execute="$usergetstatement" -N)
 
 echo "Emailing $useremail with completed message"
 
@@ -164,4 +168,4 @@ MSG_BODY_HERE
 
 done
 
-updateStatus "$queueID" "pipelineCompleted" "$environmentID"
+updateStatus "$queueID" "pipelineCompleted" "$environmentID" "$user"  "$password"
