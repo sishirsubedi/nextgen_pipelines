@@ -2,13 +2,13 @@ if [ $# -eq 0 ]
 then
 	echo "Usage: ionPipeline.sh"
 	echo "-r runID: three digits, last number of the run"
-	echo "-s sampleID"
+	echo "-s sampleName"
 	echo "-c coverageID: coverage analysis"
 	echo "-v callerID: variant caller"
-	echo "-i instrumentID"
+	echo "-i instrument"
 	echo "-e excluded amplicon list, one amplicon name per line (optional)"
 	echo "-a amplicon bed file (optional, required if -e is specified. Only variants within ranges specified in this file will be analysed) "
-	echo "-n environmentID"
+	echo "-n environment"
 	echo "-q queueID"
 	echo "-u user"
 	echo "-p password"
@@ -25,7 +25,7 @@ if test $# -gt 0
 			runID=$OPTARG
 			;;
 		s)
-		  sampleID=$OPTARG
+		  sampleName=$OPTARG
 			;;
 		c)
 			coverageID=$OPTARG
@@ -34,7 +34,7 @@ if test $# -gt 0
 			callerID=$OPTARG
 			;;
 		i)
-			instrumentID=$OPTARG
+			instrument=$OPTARG
 			;;
 		e)
 			excluded=$OPTARG
@@ -43,7 +43,7 @@ if test $# -gt 0
 			ampliconRef=$OPTARG
 			;;
 		n)
-		  environmentID=$OPTARG
+		  environment=$OPTARG
 		  ;;
 		q)
 			queueID=$OPTARG
@@ -67,7 +67,6 @@ fi
 
 
 function updateStatus() {
-
 user=$4
 password=$5
 database=$3
@@ -75,26 +74,20 @@ insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VAL
 mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
 }
 
-
-
-
-
-
-
 echo "running pipeline for queue: $queueID"
 
 ###check input parameter for correctness
-if [ $instrumentID != "pgm" ] && [ $instrumentID != "proton" ]
+if [ $instrument != "pgm" ] && [ $instrument != "proton" ]
 then
 	echo "Error: Only pgm or proton are valid input for -i"
-	  updateStatus "$queueID" "ERROR:instrument" "$environmentID" "$user"  "$password"
+	updateStatus "$queueID" "ERROR:instrument" "$environment" "$user"  "$password"
   exit
 fi
 
 if [ -z $ampliconRef ] && [ ! -z $excluded ]
 then
 	echo "Error: amplicon file must be specified if the excluded list is specified"
-  updateStatus "$queueID" "ERROR:amp_exc" "$environmentID" "$user"  "$password"
+  updateStatus "$queueID" "ERROR:amp_exc" "$environment" "$user"  "$password"
 	exit
 fi
 
@@ -102,96 +95,96 @@ fi
 if [ ! -f $ampliconRef ]
 then
 	echo "Error: reference amplicon file not found"
-	  updateStatus "$queueID" "ERROR:amplicon" "$environmentID" "$user"  "$password"
-exit
+	updateStatus "$queueID" "ERROR:amplicon" "$environment" "$user"  "$password"
+  exit
 fi
 
 if [ ! -z $excluded ] && [ ! -f $excluded ]
 then
 	echo "Error: excluded amplicon list not found"
-	  updateStatus "$queueID" "ERROR:excluded" "$environmentID" "$user"  "$password"
-exit
+  updateStatus "$queueID" "ERROR:excluded" "$environment" "$user"  "$password"
+  exit
 fi
 
-if [ -z $runID ] || [ -z $sampleID ] || [ -z $coverageID ] || [ -z $callerID ] || [ -z $instrumentID ] || [ -z $environmentID ]
+if [ -z $runID ] || [ -z $sampleName ] || [ -z $coverageID ] || [ -z $callerID ] || [ -z $instrument ] || [ -z $environment ]
 then
 	echo "Error: Please input required parameters-"
 	echo "-r runID: three digits, last number of the run"
-	echo "-s sampleID"
+	echo "-s sampleName"
 	echo "-c coverageID: coverage analysis"
 	echo "-v callerID: variant caller"
-	echo "-i instrumentID"
-	echo "-e environmentID"
-	  updateStatus "$queueID" "ERROR:parameters" "$environmentID" "$user"  "$password"
+	echo "-i instrument"
+	echo "-e environment"
+	updateStatus "$queueID" "ERROR:parameters" "$environment" "$user"  "$password"
 	exit
 fi
 
 
-variantFolder=$(ls -d /home/$instrumentID/*$runID/plugin_out/variantCaller_out."$callerID")
-ampliconFolder=$(ls -d /home/$instrumentID/*"$runID"/plugin_out/coverageAnalysis_out."$coverageID")
-runFolder=$(ls -d /home/$instrumentID/*$runID)
+variantFolder=$(ls -d /home/$instrument/*$runID/plugin_out/"$callerID")
+ampliconFolder=$(ls -d /home/$instrument/*"$runID"/plugin_out/"$coverageID")
+runFolder=$(ls -d /home/$instrument/*$runID)
 runName=${runFolder##*/}
 
 #make output directory
 
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID" ]
+if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID" ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"
+	mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"
 fi
 
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"
+chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"
 
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID" ]
+if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID" ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"
+	mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"
 fi
 
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"
+chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"
 
 echo "Runfolder is $runFolder"
 
 ##get runDate information##
 declare -A months
 months=( ["Jan"]="01" ["Feb"]="02" ["Mar"]="03" ["Apr"]="04" ["May"]="05" ["Jun"]="06" ["Jul"]="07" ["Aug"]="08" ["Sep"]="09" ["Oct"]="10" ["Nov"]="11" ["Dec"]="12" )
-if [ -f /home/"$instrumentID"/*"$runID"/InitLog.txt ]
+if [ -f /home/"$instrument"/*"$runID"/InitLog.txt ]
 then
-	runDate=$(head -n 1 /home/"$instrumentID"/*"$runID"/InitLog.txt)
+	runDate=$(head -n 1 /home/"$instrument"/*"$runID"/InitLog.txt)
 	year1=$(echo $runDate |cut -d ' ' -f 5)
 	year=${year1%:}
 	day=$(echo $runDate |cut -d ' ' -f 3)
 	monthWord=$(echo $runDate |cut -d ' ' -f 2)
 	month=${months["$monthWord"]}
 	date=$year-$month-$day
-	echo $date > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/runDate.txt
+	echo $date > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/runDate.txt
 else
 	echo "Warning: InitLog.txt file not found, run date will not be entered"
 fi
 
 # for file in $variantFolder/IonXpress_*/TSVC_variants.vcf
-# for file in $variantFolder/$sampleID/TSVC_variants.vcf
+# for file in $variantFolder/$sampleName/TSVC_variants.vcf
 # do
-## note: removed for loop, passed parameter sampleID is same as sampleName which
+## note: removed for loop, passed parameter sampleName is same as sampleName which
 ## is previously used for running all the downstream pipelines
 ## do not confuse with similar variable sample_ID which is only used once for horizon DNA
 
-file=$variantFolder/$sampleID/TSVC_variants.vcf
+file=$variantFolder/$sampleName/TSVC_variants.vcf
 echo "Processing $file"
 sampleFolder=${file%/*}
 sampleName=${sampleFolder##*/}
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID" ]
+if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID" ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"
+	mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"
 fi
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID" ]
+if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID" ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"
+	mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"
 fi
 
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"
+chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"
+chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"
 
 echo "filter against amplicon"
-echo " sampleID is $sampleID"
+echo " sampleName is $sampleName"
 sample_ID=$(grep "^#CHROM" $file |cut -f 10)
 echo " sample Folder is $sampleFolder"
 echo " sampleName is $sampleName"
@@ -201,47 +194,47 @@ echo " sample_ID is $sample_ID"
 echo "----------> File is $file"
 echo "----------> File is $ampliconRef"
 
-updateStatus "$queueID" "bedtools" "$environmentID" "$user"  "$password"
+updateStatus "$queueID" "bedtools" "$environment" "$user"  "$password"
 
 if [ ! -z $ampliconRef ]
 then
-	/opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $file -b $ampliconRef > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.filter.vcf
+	/opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $file -b $ampliconRef > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.filter.vcf
 else
-	ln -s $file /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.filter.vcf
+	ln -s $file /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.filter.vcf
 fi
 
 
-if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.filter.vcf ]
+if [ ! -f /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.filter.vcf ]
 then
 	echo "Error: bedtools"
-	  updateStatus "$queueID" "ERROR:bedtools" "$environmentID" "$user"  "$password"
+	updateStatus "$queueID" "ERROR:bedtools" "$environment" "$user"  "$password"
 exit
 fi
 
-updateStatus "$queueID" "splitVcf" "$environmentID" "$user"  "$password"
+updateStatus "$queueID" "splitVcf" "$environment" "$user"  "$password"
 
 echo "split multiple alt alleles into different lines"
-python /home/pipelines/master/python/splitVcf.py \
--I /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.filter.vcf \
+python /var/pipelines_"$environment"/python/splitVcf.py \
+-I /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.filter.vcf \
 -f FAO,FDP,AF \
--o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vcf
+-o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vcf
 
 
-if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vcf ]
+if [ ! -f /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vcf ]
 then
 	echo "Error: splitVcf"
-	  updateStatus "$queueID" "ERROR:splitVcf" "$environmentID" "$user"  "$password"
-exit
+	updateStatus "$queueID" "ERROR:splitVcf" "$environment" "$user"  "$password"
+  exit
 fi
 
 
-updateStatus "$queueID" "VEP" "$environmentID" "$user"  "$password"
+updateStatus "$queueID" "VEP" "$environment" "$user"  "$password"
 
 echo "running VEP"
-/home/pipelines/master/perl/bin/perl \
+/opt/perl/bin/perl \
 /opt/vep/ensembl-tools-release-83/scripts/variant_effect_predictor/variant_effect_predictor.pl \
--i /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vcf \
--o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.vcf \
+-i /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vcf \
+-o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.vcf \
 --offline \
 --dir_cache /opt/vep/ensembl-tools-release-83/cache/ \
 --sift p \
@@ -260,16 +253,16 @@ echo "running VEP"
 
 
 echo "parse VEP results"
-python /home/pipelines/master/python/parseVEP.py \
+python /var/pipelines_"$environment"/python/parseVEP.py \
 parseIonNewVarView \
--I /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.vcf \
--o /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt
+-I /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.vcf \
+-o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.txt
 
-if [ ! -f /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt ]
+if [ ! -f /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.txt ]
 then
 	echo "Error: vep"
-	  updateStatus "$queueID" "ERROR:VEP" "$environmentID" "$user"  "$password"
-exit
+	updateStatus "$queueID" "ERROR:VEP" "$environment" "$user"  "$password"
+  exit
 fi
 
 
@@ -278,42 +271,44 @@ echo "filter VEP results"
 shopt -s nocasematch
 if [[ $sample_ID =~ horizon ]]
 then
-	awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt \
-	> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
+	awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.txt \
+	> /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
 else
-	awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $10 != "null" && $11 >=100 && $11 != "null") print}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.txt \
-	> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
+	awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $10 != "null" && $11 >=100 && $11 != "null") print}' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.txt \
+	> /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
 fi
 
 
-sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/variantCaller_out."$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
+echo "running sed"
+sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.txt
+sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
 
 echo "processing amplicon coverage file"
 ampliconFile=$(ls $ampliconFolder/$sampleName/*.amplicon.cov.xls)
 if [ ! -z $excluded ]
 then
-	grep -v -f $excluded $ampliconFile > /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.filter.txt
+	grep -v -f $excluded $ampliconFile > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"/amplicon.filter.txt
 else
-	ln -s "$ampliconFile" /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.filter.txt
+	ln -s "$ampliconFile" /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"/amplicon.filter.txt
 fi
 
-awk -F'\t' -v OFS='\t' '{if($10 < 100) print $4,$10}' /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.filter.txt \
-> /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/coverageAnalysis_out."$coverageID"/amplicon.lessThan100.txt
+awk -F'\t' -v OFS='\t' '{if($10 < 100) print $4,$10}' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"/amplicon.filter.txt \
+> /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"/amplicon.lessThan100.txt
 
 
-updateStatus "$queueID" "UpdateDatabase" "$environmentID" "$user"  "$password"
+updateStatus "$queueID" "UpdateDatabase" "$environment" "$user"  "$password"
 
 
 #### wait for database update
 
-sleep 3
+sleep 3s
 
 ################################################################################
 # updating analysis results
 ################################################################################
 
 # update analysis
-analysischeck_statement="select queueID,plStatus from pipelineStatus where plStatus='UpdateDatabase' and queueID=$queueID limit 1;"
+analysischeck_statement="select queueID,plStatus from pipelineStatus where plStatus='UpdateDatabase' and queueID=$queueID ;"
 while  read -r queueID plStatus;
 do
 
@@ -321,8 +316,8 @@ do
 
   newStatus='UpdatingDatabase'
   updateanalysis_statement="update pipelineStatus set plStatus='$newStatus' where queueID=$queueID and plStatus='$plStatus'"
-  mysql --user="$user" --password="$password" --database="$environmentID" --execute="$updateanalysis_statement"
+  mysql --user="$user" --password="$password" --database="$environment" --execute="$updateanalysis_statement"
 
-  bash /home/pipelines/master/shell/runAnalysis.sh -q $queueID -e $environmentID -u $user -p $password
+  bash /var/pipelines_"$environment"/shell/runAnalysis.sh -q $queueID -e $environment -u $user -p $password
 
-done< <(mysql --user="$user" --password="$password" --database="$environmentID" --execute="$analysischeck_statement" -N)
+done< <(mysql --user="$user" --password="$password" --database="$environment" --execute="$analysischeck_statement" -N)

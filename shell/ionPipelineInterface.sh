@@ -4,12 +4,12 @@ if [ $# -eq 0 ]
 then
 	echo "Usage: ionPipeline_Interface.sh"
 	echo "-r runID: three digits, last number of the run"
-	echo "-s sampleID"
+	echo "-s sampleName"
 	echo "-c coverageID: coverage analysis"
 	echo "-v callerID: variant caller"
-	echo "-a assayID"
-	echo "-i instrumentID"
-	echo "-e environmentID"
+	echo "-a assay"
+	echo "-i instrument"
+	echo "-e environment"
 	echo "-q queueID"
 	echo "-u user"
 	echo "-p password"
@@ -26,7 +26,7 @@ if test $# -gt 0
 		runID=$OPTARG
 		;;
 	s)
-	  sampleID=$OPTARG
+	  sampleName=$OPTARG
 		;;
 	c)
 	  coverageID=$OPTARG
@@ -35,13 +35,13 @@ if test $# -gt 0
 		callerID=$OPTARG
 		;;
 	a)
-		assayID=$OPTARG
+		assay=$OPTARG
 		;;
 	i)
-    instrumentID=$OPTARG
+    instrument=$OPTARG
 	  ;;
   e)
-    environmentID=$OPTARG
+    environment=$OPTARG
 	  ;;
   q)
 		queueID=$OPTARG
@@ -78,103 +78,103 @@ mysql --user="$user" --password="$password" --database="$database" --execute="$i
 
 
 
-if [ -z $runID ] || [ -z $sampleID ] || [ -z $coverageID ] || [ -z $callerID ] || [ -z $assayID ] || [ -z $instrumentID ] || [ -z $environmentID ]
+if [ -z $runID ] || [ -z $sampleName ] || [ -z $coverageID ] || [ -z $callerID ] || [ -z $assay ] || [ -z $instrument ] || [ -z $environment ]
 then
 	echo "Error: Please input required parameters-"
 	echo "-r runID: three digits, last number of the run"
-	echo "-s sampleID"
+	echo "-s sampleName"
 	echo "-c coverageID: coverage analysis"
 	echo "-v callerID: variant caller"
-	echo "-a assayID"
-	echo "-i instrumentID"
-	echo "-e environmentID"
+	echo "-a assay"
+	echo "-i instrument"
+	echo "-e environment"
 
    #ERROR:parameters
 
 	exit
 fi
 
-if [ ! -d /home/$instrumentID/*"$runID"/plugin_out/coverageAnalysis_out."$coverageID"/ ]
+if [ ! -d /home/$instrument/*"$runID"/plugin_out/"$coverageID"/ ]
 then
 	echo "coverage folder for run ID:$runID; coverage ID:$coverageID not found"
-    updateStatus "$queueID" "ERROR:Instrument_coverageID" "$environmentID" "$user"  "$password"
+    updateStatus "$queueID" "ERROR:Instrument_coverageID" "$environment" "$user"  "$password"
 	exit
 fi
 
-if [ ! -d /home/$instrumentID/*"$runID"/plugin_out/variantCaller_out."$callerID"/ ]
+if [ ! -d /home/$instrument/*"$runID"/plugin_out/"$callerID"/ ]
 then
 	echo "variant folder for run ID:$runID; variant caller ID:$callerID not found"
-	  updateStatus "$queueID" "ERROR:Instrument_callerID" $environmentID "$user"  "$password"
+	  updateStatus "$queueID" "ERROR:Instrument_callerID" $environment "$user"  "$password"
 	exit
 fi
 
 
-variantFolder=$(ls -d /home/$instrumentID/*$runID/plugin_out/variantCaller_out."$callerID")
-ampliconFolder=$(ls -d /home/$instrumentID/*"$runID"/plugin_out/coverageAnalysis_out."$coverageID")
-runFolder=$(ls -d /home/$instrumentID/*$runID)
+variantFolder=$(ls -d /home/$instrument/*$runID/plugin_out/"$callerID")
+ampliconFolder=$(ls -d /home/$instrument/*"$runID"/plugin_out/"$coverageID")
+runFolder=$(ls -d /home/$instrument/*$runID)
 runName=${runFolder##*/}
 
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName ]
+if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName
+	mkdir /home/environments/$environment/"$instrument"Analysis/$runName
 fi
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName
+chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName
 
-if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID ]
+if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName ]
 then
-	mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID
+	mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName
 fi
-chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID
+chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName
 
 
-exec >  >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/process.log)
-exec 2> >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/process.log >&2)
+exec >  >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/process.log)
+exec 2> >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/process.log >&2)
 
 # running ionPipeline scripts based on assay and instrument
-if [ $assayID == "neuro" ] && [ $instrumentID == "proton" ]
+if [ $assay == "neuro" ] && [ $instrument == "proton" ]
 then
 	echo "Running ionPipeline for :
-	assayID : $assayID
-	instrumentID : $instrumentID
+	assay : $assay
+	instrument : $instrument
 	runID : $runID
-	sampleID : $sampleID
+	sampleName : $sampleName
 	coverageID : $coverageID
 	callerID : $callerID
-	environmentID : $environmentID
+	environment : $environment
 	queueID : $queueID "
 
-	bash /home/pipelines/master/shell/ionPipeline.sh -r $runID -s $sampleID -c $coverageID -v $callerID -i $instrumentID  -e /home/doc/ref/neuralRef/excludedAmplicon.txt -a /home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed -n $environmentID -q $queueID -u $user -p $password
+	bash /var/pipelines_"$environment"/shell/ionPipeline.sh -r $runID -s $sampleName -c $coverageID -v $callerID -i $instrument  -e /home/doc/ref/neuralRef/excludedAmplicon.txt -a /home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed -n $environment -q $queueID -u $user -p $password
 
 	exit
 
-elif [ $assayID == "gene50" ] && ( [ $instrumentID == "proton" ] || [ $instrumentID == "pgm" ] )
+elif [ $assay == "gene50" ] && ( [ $instrument == "proton" ] || [ $instrument == "pgm" ] )
 then
 	echo "Running ionPipeline for:
-	assayID : $assayID
-	instrumentID : $instrumentID
+	assay : $assay
+	instrument : $instrument
 	runID : $runID
-	sampleID : $sampleID
+	sampleName : $sampleName
 	coverageID : $coverageID
 	callerID : $callerID
-	environmentID : $environmentID
+	environment : $environment
   queueID : $queueID "
 
-	bash /home/pipelines/master/shell/ionPipeline.sh -r $runID -s $sampleID -c $coverageID -v $callerID -i $instrumentID -n $environmentID -q $queueID -u $user -p $password
+	bash /var/pipelines_"$environment"/shell/ionPipeline.sh -r $runID -s $sampleName -c $coverageID -v $callerID -i $instrument -n $environment -q $queueID -u $user -p $password
 	exit
 
 else
 
 	echo "Error: Failed ionPipeline for:
-	assayID : $assayID
-	instrumentID : $instrumentID
+	assay : $assay
+	instrument : $instrument
 	runID : $runID
-	sampleID : $sampleID
+	sampleName : $sampleName
 	coverageID : $coverageID
 	callerID : $callerID
-	environmentID : $environmentID
+	environment : $environment
 	queueID : $queueID "
-	echo "Not valid assay - $assayID and instrument - $instrumentID. Process Terminated."
-    updateStatus "$queueID" "ERROR:assay_inst" $environmentID "$user"  "$password"
+	echo "Not valid assay - $assay and instrument - $instrument. Process Terminated."
+    updateStatus "$queueID" "ERROR:assay_inst" $environment "$user"  "$password"
 	exit
 fi
 

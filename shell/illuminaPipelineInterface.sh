@@ -4,10 +4,10 @@ if [ $# -eq 0 ]
 then
 	echo "Usage: illuminaPipeline_Interface.sh"
 	echo "-r runID: three digits, last number of the run"
-	echo "-s sampleID"
-	echo "-a assayID"
-	echo "-i instrumentID"
-	echo "-e environmentID"
+	echo "-s sampleName"
+	echo "-a assay"
+	echo "-i instrument"
+	echo "-e environment"
 	echo "-q queueID"
 	echo "-u user"
 	echo "-p password"
@@ -24,16 +24,16 @@ if test $# -gt 0
 		runID=$OPTARG
 		;;
 	s)
-	  sampleID=$OPTARG
+	  sampleName=$OPTARG
 		;;
 	a)
-		assayID=$OPTARG
+		assay=$OPTARG
 		;;
 	i)
-    instrumentID=$OPTARG
+    instrument=$OPTARG
 	  ;;
   e)
-    environmentID=$OPTARG
+    environment=$OPTARG
 	  ;;
 	q)
 		queueID=$OPTARG
@@ -65,23 +65,23 @@ mysql --user="$user" --password="$password" --database="$database" --execute="$i
 }
 
 
-if [ -z $runID ] || [ -z $sampleID ] || [ -z $assayID ] || [ -z $instrumentID ] || [ -z $environmentID ]
+if [ -z $runID ] || [ -z $sampleName ] || [ -z $assay ] || [ -z $instrument ] || [ -z $environment ]
 then
 	echo "Error: Please input required parameters-"
 	echo "-r runID: three digits, last number of the run"
-	echo "-s sampleID"
-	echo "-a assayID"
-	echo "-i instrumentID"
-	echo "-e environmentID"
-	  updateStatus "$queueID" "ERROR:parameters" "$environmentID"  "$user"  "$password"
+	echo "-s sampleName"
+	echo "-a assay"
+	echo "-i instrument"
+	echo "-e environment"
+	  updateStatus "$queueID" "ERROR:parameters" "$environment"  "$user"  "$password"
 	exit
 fi
 
-if [ $assayID == "heme" ] && [ $instrumentID == "miseq" ]
+if [ $assay == "heme" ] && [ $instrument == "miseq" ]
 then
 
-  runFolder=$(ls -d /home/$instrumentID/*_"$runID"_*/Data/Intensities/BaseCalls/Alignment/)
-	post=${runFolder##/home/$instrumentID/}
+  runFolder=$(ls -d /home/$instrument/*_"$runID"_*/Data/Intensities/BaseCalls/Alignment/)
+	post=${runFolder##/home/$instrument/}
 	runName=${post%%/Data/Intensities/BaseCalls/Alignment*}
 
 	echo "runfolder $runFolder"
@@ -89,98 +89,166 @@ then
 	echo "runName $runName"
 
 
-	if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName ]
+	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName ]
 	then
-		mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName
+		mkdir /home/environments/$environment/"$instrument"Analysis/$runName
 	fi
-	chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName
+	chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName
 
-	if [ ! -d /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID ]
+	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName ]
 	then
-		mkdir /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID
+		mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName
 	fi
-	chmod 777 /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID
+	chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName
 
-	exec >  >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/process.log)
-	exec 2> >(tee -a /home/environments/$environmentID/"$instrumentID"Analysis/$runName/$sampleID/process.log >&2)
+	exec >  >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/process.log)
+	exec 2> >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/process.log >&2)
 
 
 	echo "Running illuminaPipeline for :
-	assayID : $assayID
-	instrumentID : $instrumentID
+	assay : $assay
+	instrument : $instrument
 	runID : $runID
-	sampleID : $sampleID
-	environmentID : $environmentID"
+	sampleName : $sampleName
+	environment : $environment"
 
-	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID -q $queueID -u $user -p $password
+	bash /var/pipelines_"$environment"/shell/illuminaPipeline.sh -r $runID -s $sampleName -i $instrument  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environment -q $queueID -u $user -p $password
 	exit
 
-elif [ $assayID == "heme" ] && [ $instrumentID == "nextseq" ]
+elif [ $assay == "heme" ] && [ $instrument == "nextseq" ]
 then
 
-	runFolder=$(ls -d /home/$instrumentID/*_"$runID"_*)      #eg: /home/nextseq/150807_NS500761_0011_AH3TTJAFXX
+	runFolder=$(ls -d /home/$instrument/*_"$runID"_*)      #eg: /home/nextseq/150807_NS500761_0011_AH3TTJAFXX
 	echo $runFolder
-	runName=${runFolder##/home/$instrumentID/}				#eg: 150807_NS500761_0011_AH3TTJAFXX
+	runName=${runFolder##/home/$instrument/}				#eg: 150807_NS500761_0011_AH3TTJAFXX
 	echo $runName
 
-	if [ ! -d /home/environments/$environmentID/"$instrumentID"_heme/$runName ]
+	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName ]
 	then
-		mkdir /home/environments/$environmentID/"$instrumentID"_heme/$runName
+		mkdir /home/environments/$environment/"$instrument"Analysis/$runName
 	fi
-	chmod 777 /home/environments/$environmentID/"$instrumentID"_heme/$runName
+	chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName
 
-	if [ ! -d /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID ]
+
+	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName ]
 	then
-		mkdir /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID
+		mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName
 	fi
-	chmod 777 /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID
+	chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName
 
-	exec >  >(tee -a /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID/process.log)
-	exec 2> >(tee -a /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID/process.log >&2)
+
+	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller ]
+	then
+		mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller
+	fi
+	chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller
+
+	exec >  >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller/process.log)
+	exec 2> >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller/process.log >&2)
 
 	echo "Running illuminaPipeline for :
-	assayID : $assayID
-	instrumentID : $instrumentID
+	assay : $assay
+	instrument : $instrument
 	runID : $runID
-	sampleID : $sampleID
-	environmentID : $environmentID"
+	sampleName : $sampleName
+	environment : $environment"
 
 
-	if [ ! -f /home/$instrumentID/*_"$runID"_*/out1/"$sampleID"*_R1_001.fastq.gz ]
+	if [ ! -f /home/$instrument/*_"$runID"_*/out1/"$sampleName"*_R1_001.fastq.gz ]
 	then
 		echo "Fastq files not found"
-		updateStatus "$queueID" "ERROR:fastqNotFound" "$environmentID" "$user"  "$password"
-		#bcl2fastq --no-lane-splitting --runfolder-dir $runFolder --output-dir $runFolder/out1
+		updateStatus "$queueID" "ERROR:fastqNotFound" "$environment" "$user"  "$password"
 		exit
 	fi
 
-  updateStatus "$queueID" "varscanPE" "$environmentID" "$user"  "$password"
+  updateStatus "$queueID" "varscanPE" "$environment" "$user"  "$password"
 
 	##Aligning fastq files
 	echo "Aligning fastq files"
-	file=$runFolder/out1/"$sampleID"*_R1_001.fastq.gz
+	file=$runFolder/out1/"$sampleName"*_R1_001.fastq.gz
 	fastq1=$file
 	fastq2=${file/_R1_/_R2_}      #repleace "R1" with "R2"
   echo $file
 	echo $fastq2
 
-	bash /home/pipelines/master/shell/VarScanPipelinePE.sh -p $fastq1 -q $fastq2 -o /home/environments/$environmentID/"$instrumentID"_heme/$runName/$sampleID/
+	bash /var/pipelines_"$environment"/shell/VarScanPipelinePE.sh -p $fastq1 -q $fastq2 -o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller
 
 
 	# ##Variant calling
 	echo "Starting variant calling"
-	bash /home/pipelines/master/shell/illuminaPipeline.sh -r $runID -s $sampleID -i $instrumentID  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environmentID -q $queueID -u $user -p $password
+	bash /var/pipelines_"$environment"/shell/illuminaPipeline.sh -r $runID -s $sampleName -i $instrument  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environment -q $queueID -u $user -p $password
 
   exit
 
+elif [ $assay == "exome" ] && [ $instrument == "nextseq" ]
+then
+
+	runFolder=$(ls -d /home/$instrument/*_"$runID"_*)
+	echo $runFolder
+	runName=${runFolder##/home/$instrument/}
+	echo $runName
+
+	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName ]
+	then
+		mkdir /home/environments/$environment/"$instrument"Analysis/$runName
+	fi
+	chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName
+
+
+	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName ]
+	then
+		mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName
+	fi
+	chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName
+
+
+	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller ]
+	then
+		mkdir /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller
+	fi
+	chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller
+
+	exec >  >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller/process.log)
+	exec 2> >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller/process.log >&2)
+
+	echo "Running illuminaPipeline for :
+	assay : $assay
+	instrument : $instrument
+	runID : $runID
+	sampleName : $sampleName
+	environment : $environment"
+
+
+	if [ ! -f /home/$instrument/*_"$runID"_*/out1/"$sampleName"*_R1_001.fastq.gz ]
+	then
+		echo "Fastq files not found"
+		updateStatus "$queueID" "ERROR:fastqNotFound" "$environment" "$user"  "$password"
+		exit
+	fi
+
+	updateStatus "$queueID" "varscanPE" "$environment" "$user"  "$password"
+
+	##Aligning fastq files
+	echo "Aligning fastq files"
+	file=$runFolder/out1/"$sampleName"*_R1_001.fastq.gz
+	fastq1=$file
+	fastq2=${file/_R1_/_R2_}      #repleace "R1" with "R2"
+  echo $file
+	echo $fastq2
+
+	bash /var/pipelines_"$environment"/shell/gatkPipeline.sh -p $fastq1 -q $fastq2 -o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller
+
+
+	exit
+
 else
 		echo "Error: Failed ionPipeline for:
-		assayID : $assayID
-		instrumentID : $instrumentID
+		assay : $assay
+		instrument : $instrument
 		runID : $runID
-		sampleID : $sampleID
-		environmentID : $environmentID "
-		echo "Not valid assay - $assayID and instrument - $instrumentID. Process Terminated."
+		sampleName : $sampleName
+		environment : $environment "
+		echo "Not valid assay - $assay and instrument - $instrument. Process Terminated."
 		exit
 fi
 

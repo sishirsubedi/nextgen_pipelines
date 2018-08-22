@@ -43,19 +43,19 @@ fi
 
 echo " -q "$queueID" -e "$environment" -u "$user" -p "$password" "
 
+
+echo "running pipelineThread.sh"
 ################################################################################
 # running pipeline from sampleAnalysisQueue
 ################################################################################
 
-job_statement="select queueID,  runID, sampleID,coverageID, vcallerID, assayID, instrumentID, environmentID, status from sampleAnalysisQueue where queueID='$queueID';"
+job_statement="select pipelineQueue.queueID, samples.runID, samples.sampleName, samples.coverageID, samples.callerID, assays.assayName, instruments.instrumentName, pipelineQueue.status from pipelineQueue join samples on samples.sampleID=pipelineQueue.sampleID join assays on assays.assayID = samples.assayID join instruments on instruments.instrumentID = samples.instrumentID where pipelineQueue.queueID='$queueID';"
 
-while read -r queueID  runID  sampleID coverageID vcallerID assayID instrumentID environmentID status;
+while read -r queueID  runID  sampleName coverageID callerID assay instrument status;
 do
 	echo "processing job-----> $queueID"
-
-
-	echo " job is $queueID , $runID, $sampleID, $coverageID, $vcallerID,  $assayID, $instrumentID, $environmentID, $status"
-	echo "instrumentID is "$instrumentID" "
+	echo " job is $queueID , $runID, $sampleName, $coverageID, $callerID,  $assay, $instrument, $environment, $status"
+	echo "instrument is "$instrument" "
 
 	# insert into pipelineStatus table to update status as started
 	insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$queueID','started',now());"
@@ -63,17 +63,17 @@ do
 
 	# run pipeline
 
-	if [ "$instrumentID" == "proton" ] || [ "$instrumentID" == "pgm" ]
+	if [ "$instrument" == "proton" ] || [ "$instrument" == "pgm" ]
 	then
-  	echo "running -- instrument $instrumentID -- assay $assayID -- run $runID -- sample id is $sampleID"
+  	echo "running -- instrument $instrument -- assay $assay -- run $runID -- sample id is $sampleName"
 		echo "running ionPipelineInterface.sh"
-  	bash /home/pipelines/master/shell/ionPipelineInterface.sh -r $runID -s $sampleID -c $coverageID -v $vcallerID -a $assayID -i $instrumentID -e $environmentID -q $queueID -u $user -p $password
-	elif [ "$instrumentID" == "nextseq" ] || [ "$instrumentID" == "miseq" ]
+  	bash /var/pipelines_"$environment"/shell/ionPipelineInterface.sh -r $runID -s $sampleName -c $coverageID -v $callerID -a $assay -i $instrument -e $environment -q $queueID -u $user -p $password
+	elif [ "$instrument" == "nextseq" ] || [ "$instrument" == "miseq" ]
 	then
-  	echo "running -- instrument $instrumentID -- assay $assayID -- run $runID -- sample id is $sampleID"
-		echo "instrumentID is "$instrumentID" "
+  	echo "running -- instrument $instrument -- assay $assay -- run $runID -- sample id is $sampleName"
+		echo "instrumentID is "$instrument" "
 		echo "running illuminaPipelineInterface.sh"
-  	bash /home/pipelines/master/shell/illuminaPipelineInterface.sh -r $runID -s $sampleID -a $assayID -i $instrumentID -e $environmentID -q $queueID -u $user -p $password
+  	bash /var/pipelines_"$environment"/shell/illuminaPipelineInterface.sh -r $runID -s $sampleName -a $assay -i $instrument -e $environment -q $queueID -u $user -p $password
 	fi
 
 done < <(sudo mysql --user="$user" --password="$password" --database="$environment" --execute="$job_statement" -N )
