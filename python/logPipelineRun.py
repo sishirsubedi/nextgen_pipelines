@@ -25,18 +25,21 @@ def logIntoDB(queueID,user,passwd,db):
 
     #### calculate the file size
     vcf_file=''
+    filesize=0
     if pipeline.instrument == 'miseq':
         vcf_file = glob.glob(os.path.join('/home', pipeline.instrument, '*_'+pipeline.runID+'_*', 'Data','Intensities', 'BaseCalls', 'Alignment' ,pipeline.sampleName+'_*.vcf' ))
+        filesize = os.stat(vcf_file[0]).st_size / 1000
     elif pipeline.instrument == 'proton':
         vcf_file = glob.glob(os.path.join('/home', pipeline.instrument, '*'+pipeline.runID, 'plugin_out','variantCaller_out*',pipeline.sampleName,'TSVC_variants.vcf'))
+        filesize = os.stat(vcf_file[0]).st_size / 1000
     elif pipeline.instrument == 'nextseq': ##check fastq here
         vcf_file = glob.glob(os.path.join('/home', pipeline.instrument, '*_'+pipeline.runID+'_*', 'out1',pipeline.sampleName+'*_R1_001.fastq.gz'))
-    filesize = os.stat(vcf_file[0]).st_size / 1000 # store in KB
+        filesize = os.stat(vcf_file[0]).st_size / 1000000
 
     ## calculate the total run timeUpdated
-    runtime = getPipelineRunTime(queueID,user, passwd,db)
+    runtime = getPipelineRunTime(queueID,user, passwd,db,pipeline)
 
-    updatePipelineLog(user,passwd,db, pipeline.queueID, filesize, runtime)
+    updatePipelineLog(user,passwd,db, pipeline.queueID, pipeline.runID,pipeline.sampleName, pipeline.instrument, pipeline.assay,  pipeline.timeSubmitted, filesize, runtime)
 
 
 def getPipelineInfo(queueID,user,passwd,db):
@@ -59,7 +62,7 @@ def getPipelineInfo(queueID,user,passwd,db):
         if(connection.is_connected()):
             connection.close()
 
-def getPipelineRunTime(queueID,user,passwd,db):
+def getPipelineRunTime(queueID,user,passwd,db,pipeline):
 
     try:
         connection = mysql.connector.connect(host='localhost',database=db, user=user, password=passwd)
@@ -68,7 +71,14 @@ def getPipelineRunTime(queueID,user,passwd,db):
         cursor.execute(query, (queueID,))
         timediff=0
         for row in cursor:
-            timediff=row[0]
+            if pipeline.instrument=='proton' and pipeline.assay=='neuro':
+                timediff=row[0] # store in seconds
+            elif pipeline.instrument=='proton' and pipeline.assay=='gene50':
+                timediff=row[0]
+            elif pipeline.instrument=='miseq' and pipeline.assay=='heme':
+                timediff=row[0]
+            elif pipeline.instrument=='nextseq' and pipeline.assay=='heme':
+                timediff=row[0]/60 # store in minutes
         return timediff
 
     except mysql.connector.Error as error :
@@ -79,13 +89,12 @@ def getPipelineRunTime(queueID,user,passwd,db):
         if(connection.is_connected()):
             connection.close()
 
-def updatePipelineLog(user,passwd,db, queueID, filesize, runtime):
-
+def updatePipelineLog(user,passwd,db, queueID, runID,sampleName, instrument, assay, timeSubmitted, filesize, runtime):
     try:
         connection = mysql.connector.connect(host='localhost',database=db, user=user, password=passwd)
         cursor = connection.cursor(prepared=True)
-        query = "INSERT INTO pipelineLogs (queueID,fileSizeKB,runTimeSecs) VALUES(%s,%s,%s) "
-        cursor.execute(query, (queueID, filesize, runtime))
+        query = "INSERT INTO pipelineLogs (queueID, runID, sampleName, instrument, assay, timeSubmitted, filesize, totalRunTime) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)"
+        cursor.execute(query, (queueID, runID, sampleName, instrument, assay, timeSubmitted, filesize, runtime))
         connection.commit()
 
     except mysql.connector.Error as error :

@@ -44,7 +44,7 @@ fi
 echo " -q "$queueID" -e "$environment" -u "$user" -p "$password" "
 
 
-echo "running pipelineThread.sh"
+echo " $currentdate    INFO  -  running pipelineThread.sh"
 ################################################################################
 # running pipeline from sampleAnalysisQueue
 ################################################################################
@@ -53,9 +53,8 @@ job_statement="select pipelineQueue.queueID, samples.runID, samples.sampleName, 
 
 while read -r queueID  runID  sampleName coverageID callerID assay instrument status;
 do
-	echo "processing job-----> $queueID"
-	echo " job is $queueID , $runID, $sampleName, $coverageID, $callerID,  $assay, $instrument, $environment, $status"
-	echo "instrument is "$instrument" "
+	echo " $currentdate    INFO  -  processing job -----> $queueID"
+	echo " $currentdate   INFO  -  job is $queueID , $runID, $sampleName, $coverageID, $callerID,  $assay, $instrument, $environment, $status"
 
 	# insert into pipelineStatus table to update status as started
 	insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$queueID','started',now());"
@@ -65,14 +64,11 @@ do
 
 	if [ "$instrument" == "proton" ] || [ "$instrument" == "pgm" ]
 	then
-  	echo "running -- instrument $instrument -- assay $assay -- run $runID -- sample id is $sampleName"
-		echo "running ionPipelineInterface.sh"
+		echo " $currentdate    INFO  -  running ionPipelineInterface.sh"
   	bash /var/pipelines_"$environment"/shell/ionPipelineInterface.sh -r $runID -s $sampleName -c $coverageID -v $callerID -a $assay -i $instrument -e $environment -q $queueID -u $user -p $password
 	elif [ "$instrument" == "nextseq" ] || [ "$instrument" == "miseq" ]
 	then
-  	echo "running -- instrument $instrument -- assay $assay -- run $runID -- sample id is $sampleName"
-		echo "instrumentID is "$instrument" "
-		echo "running illuminaPipelineInterface.sh"
+		echo " $currentdate    INFO  -  running illuminaPipelineInterface.sh"
   	bash /var/pipelines_"$environment"/shell/illuminaPipelineInterface.sh -r $runID -s $sampleName -a $assay -i $instrument -e $environment -q $queueID -u $user -p $password
 	fi
 

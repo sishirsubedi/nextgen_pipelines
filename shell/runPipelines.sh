@@ -3,7 +3,7 @@ export SHELL=/usr/bin/bash
 
 if [ $# -eq 0 ]
 then
-	echo "Usage: pipelineThread.sh"
+	echo "Usage: runPipelines.sh"
 	echo "-e environment"
   echo "-u user"
   echo "-p password"
@@ -36,12 +36,12 @@ if test $# -gt 0
 fi
 
 #remove previous empty log files
-rm -f $(find /var/pipelines_"$environment"/cron_logs/ -name "*.log" -type f -size -250c)
+rm -f $(find /var/pipelines_"$environment"/cron_logs/ -name "*.log" -type f -size -375c)
 
 
 date_=`date '+%Y-%m-%d %H:%M:%S'`
 currentdate=$(echo $date_ | sed -e 's/ /_/g' -e 's/:/_/g' -e 's/-/_/g' )
-echo "Running pipelines cron job at - $currentdate "
+echo " $currentdate    INFO  -  Running pipelines at"
 touch  /var/pipelines_"$environment"/run_files/"$currentdate".txt
 sudo chmod 777  /var/pipelines_"$environment"/run_files/"$currentdate".txt
 
@@ -50,7 +50,7 @@ sudo chmod 777  /var/pipelines_"$environment"/run_files/"$currentdate".txt
 # invoke nextseq
 ################################################################################
 
-nohup bash /var/pipelines_"$environment"/shell/runPipelines_nextseq.sh -e $environment -u $user -p $password &
+nohup bash /var/pipelines_"$environment"/shell/runPipelines_nextseq.sh -e $environment -u $user -p $password & > /var/pipelines_"$environment"/cron_logs/"nextseq_$currentdate".txt
 
 ################################################################################
 # running non nextseq pipeline from sampleAnalysisQueue
@@ -58,19 +58,23 @@ nohup bash /var/pipelines_"$environment"/shell/runPipelines_nextseq.sh -e $envir
 defaultStatus=0
 instrument='nextseq'
 statement="select pipelineQueue.queueID from pipelineQueue join samples on samples.sampleID=pipelineQueue.sampleID join assays on assays.assayID = samples.assayID join instruments on instruments.instrumentID = samples.instrumentID where pipelineQueue.status='$defaultStatus'and instruments.instrumentName !='$instrument' order by pipelineQueue.queueID;"
-echo "   ----- Queued MISEQ/PROTON jobs in this cronjob are --------"
+echo " $currentdate    INFO  -  Queued MISEQ/PROTON jobs"
 while  read -r queueID ;
 do
-   echo "queueID is $queueID , user is $user,  database is $environment "
+
+   echo " $currentdate    INFO  -  MISEQ/PROTON queueID is $queueID"
+
    #update sampleAnalysisQueue table and set status of this queue to 1 i.e started processing
    updatestatement="UPDATE pipelineQueue SET status=1 WHERE queueID = $queueID;"
+
    mysql --user="$user" --password="$password" --database="$environment" --execute="$updatestatement"
    echo "$queueID"  >> /var/pipelines_"$environment"/run_files/"$currentdate".txt
 
 done < <(mysql --user="$user" --password="$password" --database="$environment" --execute="$statement" -N)
 
+
+## run jobs in parallel
 /opt/parallel/bin/parallel --jobs /var/pipelines_"$environment"/run_files/jobfile \
-	       --eta \
          -a /var/pipelines_"$environment"/run_files/"$currentdate".txt  "/var/pipelines_"$environment"/shell/pipelineThread.sh -e $environment -u $user -p $password -q "
 
 
@@ -78,4 +82,4 @@ done < <(mysql --user="$user" --password="$password" --database="$environment" -
 sudo rm -f /var/pipelines_"$environment"/run_files/"$currentdate".txt
 
 
-echo "cron job finished running at - $currentdate"
+echo " $currentdate    INFO  -  cron job finished running"

@@ -63,7 +63,7 @@ if test $# -gt 0
 fi
 
 
-
+ echo " $currentdate    INFO  - running ionPipelineInterface for queueID - $queueID "
 
 function updateStatus() {
 
@@ -133,7 +133,7 @@ exec 2> >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/
 # running ionPipeline scripts based on assay and instrument
 if [ $assay == "neuro" ] && [ $instrument == "proton" ]
 then
-	echo "Running ionPipeline for :
+	echo " $currentdate    INFO  -  Running ionPipeline for :
 	assay : $assay
 	instrument : $instrument
 	runID : $runID
@@ -149,7 +149,7 @@ then
 
 elif [ $assay == "gene50" ] && ( [ $instrument == "proton" ] || [ $instrument == "pgm" ] )
 then
-	echo "Running ionPipeline for:
+	echo " $currentdate    INFO  -  Running ionPipeline for:
 	assay : $assay
 	instrument : $instrument
 	runID : $runID

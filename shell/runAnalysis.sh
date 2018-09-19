@@ -39,7 +39,7 @@ if test $# -gt 0
 fi
 
 
-
+ echo " '''$currentdate'''    INFO  - running runAnalysis for queueID - $queueID "
 
 function updateStatus() {
 user=$4
@@ -57,12 +57,10 @@ ampliconstatement=""
 
 mysql --user="$user" --password="$password" --database="$environment" --execute="$statement" -N | while  read -r sampleID queueID  runID  sampleName coverageID callerID assay instrument status;
 do
-  echo " From runAnalysis: $sampleID : $queueID  :$runID  :$sampleName :$coverageID :$callerID :$assay :$instrument :$environment: $status"
-
   if [ "$instrument" == "proton" ] || [ "$instrument" == "pgm" ]
   then
 
-     echo "getting Analysis -- instrument $instrument -- assay $assay -- run $runID -- coverage $coverageID -- caller $callerID  -- sample id is $sampleName"
+     echo " '''$currentdate'''    INFO  - getting Analysis -- instrument $instrument -- assay $assay -- run $runID -- coverage $coverageID -- caller $callerID  -- sample id is $sampleName"
 
      #enter not filtered variant data
      variantfile=$(ls /home/environments/$environment/"$instrument"Analysis/*$runID/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.txt)
@@ -83,7 +81,7 @@ do
 		 /opt/python3/bin/python3 /var/pipelines_"$environment"/python/loadSampleAmplicons.py \
 		 													-i /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"/amplicon.filter.txt \
 															-o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"/amplicon.filter.v2.txt \
-															-s $sampleName \
+															-s $sampleID \
 															-n $instrument\
 
     ampliconfile=$(ls /home/environments/$environment/"$instrument"Analysis/*$runID/$sampleName/"$coverageID"/amplicon.filter.v2.txt)
@@ -102,7 +100,7 @@ do
 
 		 if [ "$instrument" == "nextseq" ]
 		 then
-     	echo "getting Analysis  -- instrument $instrument -- assay $assay -- run $runID -- sample id is $sampleName"
+     	echo " '''$currentdate'''    INFO  - getting Analysis  -- instrument $instrument -- assay $assay -- run $runID -- sample id is $sampleName"
 
 		 	#enter not filtered variant data
      	variantfile=$(ls /home/environments/$environment/"$instrument"Analysis/*_"$runID"_*/$sampleName/variantAnalysis/$sampleName.amplicon.vep.parse.txt)
@@ -127,7 +125,7 @@ do
 			/opt/python3/bin/python3 /var/pipelines_"$environment"/python/loadSampleAmplicons.py \
 															 -i /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.amplicon.txt \
 															 -o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.amplicon.v2.txt \
-															 -s $sampleName \
+															 -s $sampleID \
 															 -n $instrument \
 
 			#amplicon file
@@ -143,7 +141,7 @@ do
 
 	 elif  [ "$instrument" == "miseq" ]
 	 then
-		 echo "getting Analysis  -- instrument $instrument -- assay $assay -- run $runID -- sample id is $sampleName"
+		 echo " '''$currentdate'''    INFO  - getting Analysis  -- instrument $instrument -- assay $assay -- run $runID -- sample id is $sampleName"
 
       #enter variant data
       variantfile=$(ls /home/environments/$environment/"$instrument"Analysis/*_"$runID"_*/$sampleName/$sampleName.amplicon.vep.parse.filter.txt)
@@ -162,7 +160,7 @@ do
 			/opt/python3/bin/python3 /var/pipelines_"$environment"/python/loadSampleAmplicons.py \
 															 -i /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.txt \
 															 -o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.v2.txt \
-															 -s $sampleName \
+															 -s $sampleID \
 															 -n $instrument \
 
 	     #amplicon file
@@ -190,11 +188,11 @@ mysql --user="$user" --password="$password" --database="$environment" --execute=
 usergetstatement="select email from users where userID in (select enteredBy from samples as t1  join pipelineQueue as t2 on  t1.sampleID=t2.sampleID where t2.queueID ='$queueID');"
 useremail=$(mysql --user="$user" --password="$password" --database="$environment" --execute="$usergetstatement" -N)
 
-echo "Emailing $useremail with completed message"
+echo " $currentdate   INFO  - Emailing $useremail with completed message"
 
 message=$'Pipeline Completed for-
 				assay : '$assay' ,
-				instrument : '$instrument'
+				instrument : '$instrument' ,
 				runID : '$runID' ,
 				sampleName : '$sampleName' ,
 				coverageID : '$coverageID' ,
@@ -203,17 +201,7 @@ message=$'Pipeline Completed for-
 				queueID : '$queueID' '
 echo $message
 
-mail  -s "Pipeline completed for sample:$sampleName , run:$runID"   $useremail << MSG_BODY_HERE
-Pipeline Completed for-
-				assay : $assay ,
-				instrument : $instrument ,
-				runID : $runID ,
-				sampleName : $sampleName ,
-				coverageID : $coverageID ,
-				callerID : $callerID ,
-				environment : $environment ,
-				queueID : $queueID
-MSG_BODY_HERE
+echo $message |  mailx  -s "Pipeline completed for sample:$sampleName , run:$runID" "$useremail"
 
 done
 

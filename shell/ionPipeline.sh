@@ -74,7 +74,7 @@ insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VAL
 mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
 }
 
-echo "running pipeline for queue: $queueID"
+echo " $currentdate    INFO  -  running ionPipeline for queue: $queueID"
 
 ###check input parameter for correctness
 if [ $instrument != "pgm" ] && [ $instrument != "proton" ]
@@ -141,7 +141,7 @@ fi
 
 chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"
 
-echo "Runfolder is $runFolder"
+echo " $currentdate    INFO  -  Runfolder is $runFolder"
 
 ##get runDate information##
 declare -A months
@@ -168,7 +168,7 @@ fi
 ## do not confuse with similar variable sample_ID which is only used once for horizon DNA
 
 file=$variantFolder/$sampleName/TSVC_variants.vcf
-echo "Processing $file"
+echo " $currentdate    INFO  -  Processing $file"
 sampleFolder=${file%/*}
 sampleName=${sampleFolder##*/}
 if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID" ]
@@ -183,17 +183,7 @@ fi
 chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"
 chmod 777 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$coverageID"
 
-echo "filter against amplicon"
-echo " sampleName is $sampleName"
 sample_ID=$(grep "^#CHROM" $file |cut -f 10)
-echo " sample Folder is $sampleFolder"
-echo " sampleName is $sampleName"
-echo " sample_ID is $sample_ID"
-
-
-echo "----------> File is $file"
-echo "----------> File is $ampliconRef"
-
 updateStatus "$queueID" "bedtools" "$environment" "$user"  "$password"
 
 if [ ! -z $ampliconRef ]
@@ -213,7 +203,7 @@ fi
 
 updateStatus "$queueID" "splitVcf" "$environment" "$user"  "$password"
 
-echo "split multiple alt alleles into different lines"
+echo " $currentdate    INFO  -  split multiple alt alleles into different lines"
 python /var/pipelines_"$environment"/python/splitVcf.py \
 -I /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.filter.vcf \
 -f FAO,FDP,AF \
@@ -230,7 +220,7 @@ fi
 
 updateStatus "$queueID" "VEP" "$environment" "$user"  "$password"
 
-echo "running VEP"
+echo " $currentdate    INFO  -  running VEP"
 /opt/perl/bin/perl \
 /opt/vep/ensembl-tools-release-83/scripts/variant_effect_predictor/variant_effect_predictor.pl \
 -i /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vcf \
@@ -252,7 +242,7 @@ echo "running VEP"
 
 
 
-echo "parse VEP results"
+echo " $currentdate    INFO  -  parse VEP results"
 python /var/pipelines_"$environment"/python/parseVEP.py \
 parseIonNewVarView \
 -I /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.vcf \
@@ -267,7 +257,7 @@ fi
 
 
 
-echo "filter VEP results"
+echo " $currentdate    INFO  -  filter VEP results"
 shopt -s nocasematch
 if [[ $sample_ID =~ horizon ]]
 then
@@ -279,11 +269,11 @@ else
 fi
 
 
-echo "running sed"
+echo " $currentdate    INFO  -  running sed"
 sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.txt
 sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/"$callerID"/TSVC_variants.split.vep.parse.newVarView.filter.txt
 
-echo "processing amplicon coverage file"
+echo " $currentdate    INFO  -  processing amplicon coverage file"
 ampliconFile=$(ls $ampliconFolder/$sampleName/*.amplicon.cov.xls)
 if [ ! -z $excluded ]
 then
@@ -301,7 +291,7 @@ updateStatus "$queueID" "UpdateDatabase" "$environment" "$user"  "$password"
 
 #### wait for database update
 
-sleep 3s
+sleep 1s
 
 ################################################################################
 # updating analysis results
@@ -312,7 +302,7 @@ analysischeck_statement="select queueID,plStatus from pipelineStatus where plSta
 while  read -r queueID plStatus;
 do
 
-	echo "Running analysis"
+	echo " $currentdate    INFO  -  Running analysis"
 
   newStatus='UpdatingDatabase'
   updateanalysis_statement="update pipelineStatus set plStatus='$newStatus' where queueID=$queueID and plStatus='$plStatus'"

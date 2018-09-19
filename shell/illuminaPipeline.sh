@@ -59,10 +59,9 @@ fi
 
 
 function updateStatus() {
-
 user=$4
 password=$5
-database=test
+database=$3
 insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
 mysql --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
 }
@@ -145,8 +144,6 @@ then
 	runName=${post%%/Data/Intensities/BaseCalls/Alignment*}
 
 
-	echo "Runfolder is $runFolder"
-
 	##get runDate information##
 	dateString=${runName%%_*}
 	year=20${dateString:0:2}
@@ -160,41 +157,35 @@ then
 	###filter amplicon file
 	if [ ! -z $excluded ]
 	then
-		grep -v -f $excluded $ampliconFile > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/amplicon.filtered.txt
+		grep -v -f $excluded $ampliconFile > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.filtered.txt
 	else
-		ln -s $ampliconFile /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/amplicon.filtered.txt
+		ln -s $ampliconFile /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.filtered.txt
 	fi
 
-	echo "runfolder is $runFolder"
-	echo "sample id is $sampleName"
 	###Start processing file
 	for file in $runFolder/*.vcf
 	do
-		echo $file
 		if  [[ ${file} =~ $sampleName ]]
 	  then
 			break
 		fi
 	done
 	#
-	# file=$runFolder$sampleName.vcf
-
-	if [[ $file =~ .*_S[0-9]+\.vcf ]]
-	#if the vcf is in the raw machine output form
-	then
-	echo "Processing $file"
-	fileName=${file##*/}
-	sampleName=${fileName%%_*}
-	fi
+  echo "working file is - " $file
 
 
-	echo "----------> File is $file"
-	echo "----------> File is $ampliconRef"
+	# if [[ $file =~ .*_S[0-9]+\.vcf ]]
+	# #if the vcf is in the raw machine output form
+	# then
+	#
+	# fileName=${file##*/}
+	# sampleName=${fileName%%_*}
+	# fi
 
   updateStatus "$queueID" "bedtools"  "$environment"  "$user"  "$password"
-
+  echo   "ampliconref is "$ampliconRef
 	##filter vcf against ampliconRef
-	if [ ! -z $ampliconRef ]
+	if [ ! -z $ampliconRef ]   #string is null, that is, has zero length
 	then
 	/opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $file -b $ampliconRef > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.vcf
 	else
@@ -210,7 +201,7 @@ then
 
 	updateStatus "$queueID" "VEP"  "$environment" "$user"  "$password"
 
-	echo "running VEP"
+	echo " ''$currentdate''    INFO  - running VEP"
 	/opt/perl/bin/perl \
 	/opt/vep/ensembl-tools-release-83/scripts/variant_effect_predictor/variant_effect_predictor.pl \
 	-i /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.vcf \
@@ -240,13 +231,13 @@ then
 
   updateStatus "$queueID" "parseVEP"  "$environment" "$user"  "$password"
 
-	echo "parse VEP results for new varView"
+	echo " ''$currentdate''    INFO  - parse VEP results for new varView"
 	python /var/pipelines_"$environment"/python/parseVEP.py \
 	parseIllumina \
 	-I /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.vep.vcf \
 	-o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.vep.parse.txt
 
-	echo "filter VEP results"
+	echo " ''$currentdate''    INFO  - filter VEP results"
 	shopt -s nocasematch
 	if [[ $sampleName =~ horizon ]]
 	then
@@ -262,14 +253,14 @@ then
 
 	##split amplicon file
 
-	sampleCol=$(head -n 1 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/amplicon.filtered.txt | awk -F"\t" -v sample=$sampleName '{for (i=1; i<= NF; i++) if($i==sample) print i}')
+	sampleCol=$(head -n 1 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.filtered.txt | awk -F"\t" -v sample=$sampleName '{for (i=1; i<= NF; i++) if($i==sample) print i}')
 
 	if [ $sampleCol = "" ]
-	then
-	echo "amplicon info not found in amplicon file for sample:$sampleName"
+		then
+			echo "amplicon info not found in amplicon file for sample:$sampleName"
 	fi
 
-	cut -f 1,$sampleCol /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/amplicon.filtered.txt > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.txt
+	cut -f 1,$sampleCol /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.filtered.txt > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.txt
 	awk '$2 < 100' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.txt > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/$sampleName.amplicon.lessThan100.txt
 
 
@@ -281,12 +272,6 @@ then
 	runFolder=$(ls -d /home/$instrument/*_"$runID"_*)
 	post=${runFolder##/home/$instrument/}
 	runName=${post%%/Data/Intensities/BaseCalls/Alignment*}
-
-
-	echo "runFolder is $runFolder"
-	echo "post is $post"
-	echo "runName is $runName"
-
 
 
 	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis ]
@@ -351,7 +336,7 @@ then
 
     updateStatus "$queueID" "VEP"   "$environment"  "$user"  "$password"
 
-		echo "running VEP"
+		echo " ''$currentdate''    INFO  - running VEP"
 		/opt/perl/bin/perl \
 		/opt/vep/ensembl-tools-release-83/scripts/variant_effect_predictor/variant_effect_predictor.pl \
 			-i /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.amplicon.vcf \
@@ -372,7 +357,7 @@ then
 			--maf_1kg
 
 
-			echo "parse VEP results for new varView"
+			echo " ''$currentdate''    INFO  - parse VEP results for new varView"
 			python /var/pipelines_"$environment"/python/parseVEP.py \
 			parseIlluminaNextseq \
 			-I /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.amplicon.vep.vcf \
@@ -387,7 +372,7 @@ then
 
 
 
-			echo "filter VEP results"
+			echo " ''$currentdate''    INFO  - filter VEP results"
 			shopt -s nocasematch
 			if [[ $sampleName =~ horizon ]]
 				then
@@ -398,13 +383,13 @@ then
 				> /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.amplicon.vep.parse.filter.txt
 			fi
 
-			echo "running sed"
+			echo " ''$currentdate''    INFO  - running sed"
 			sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.amplicon.vep.parse.txt
       sed -i '1iGene\texon\tchr\tpos\tref\talt\tClassification\tType\tQuality\tAltVariantFreq\tRead Depth\tAltReadDepth\tConsequence\tSift\tPolyPhen\tHGVSc\tHGVSp\tdbSNPID\tpubmed' /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.amplicon.vep.parse.filter.txt
 
       updateStatus "$queueID" "samtools"  "$environment"  "$user"  "$password"
 
-			echo "generating "$sampleName" ampliconFile"
+			echo " ''$currentdate''    INFO  - generating "$sampleName" ampliconFile"
 			/opt/samtools-1.4/samtools-1.4/samtools bedcov  /doc/ref/Heme/trusight-myeloid-amplicon-track.excludedNew.bed /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller/$sampleName.sort.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.samtools.coverageDepth
 			ampliconFile=$(ls /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.samtools.coverageDepth)
 
@@ -420,7 +405,6 @@ then
 
 			##split amplicon file
 			sampleCol=$(head -n 1 /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantAnalysis/$sampleName.amplicon.filtered.txt | awk -F"\t" '{print NF; exit}')
-			echo "amplicon file has $sampleCol columns"
 			if [ $sampleCol != "2" ]
 				then
 				echo "amplicon info not found in amplicon file for sample:$sampleName"
@@ -439,18 +423,17 @@ fi
 
 #### wait for database update
 
-sleep 3
+sleep 1
 
 ################################################################################
 # updating analysis results
 ################################################################################
 
-# update analysis
-analysischeck_statement="select queueID,plStatus from pipelineStatus where plStatus='UpdateDatabase' and queueID=$queueID limit 1;"
+analysischeck_statement="select queueID,plStatus from pipelineStatus where plStatus='UpdateDatabase' and queueID=$queueID ;"
 while  read -r queueID plStatus;
 do
   newStatus='UpdatingDatabase'
-  echo "Running analysis"
+  echo " ''$currentdate''    INFO  - Running analysis"
   updateanalysis_statement="update pipelineStatus set plStatus='$newStatus' where queueID=$queueID and plStatus='$plStatus'"
   mysql --user="$user" --password="$password" --database="$environment" --execute="$updateanalysis_statement"
   bash /var/pipelines_"$environment"/shell/runAnalysis.sh -q $queueID -e $environment -u $user -p $password

@@ -84,10 +84,6 @@ then
 	post=${runFolder##/home/$instrument/}
 	runName=${post%%/Data/Intensities/BaseCalls/Alignment*}
 
-	echo "runfolder $runFolder"
-	echo "post $post"
-	echo "runName $runName"
-
 
 	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName ]
 	then
@@ -105,7 +101,7 @@ then
 	exec 2> >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/process.log >&2)
 
 
-	echo "Running illuminaPipeline for :
+	echo " '$currentdate'    INFO  - Running illuminaPipeline for :
 	assay : $assay
 	instrument : $instrument
 	runID : $runID
@@ -119,9 +115,7 @@ elif [ $assay == "heme" ] && [ $instrument == "nextseq" ]
 then
 
 	runFolder=$(ls -d /home/$instrument/*_"$runID"_*)      #eg: /home/nextseq/150807_NS500761_0011_AH3TTJAFXX
-	echo $runFolder
 	runName=${runFolder##/home/$instrument/}				#eg: 150807_NS500761_0011_AH3TTJAFXX
-	echo $runName
 
 	if [ ! -d /home/environments/$environment/"$instrument"Analysis/$runName ]
 	then
@@ -146,7 +140,7 @@ then
 	exec >  >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller/process.log)
 	exec 2> >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller/process.log >&2)
 
-	echo "Running illuminaPipeline for :
+	echo " '$currentdate'    INFO  - Running illuminaPipeline for :
 	assay : $assay
 	instrument : $instrument
 	runID : $runID
@@ -167,15 +161,15 @@ then
 	echo "Aligning fastq files"
 	file=$runFolder/out1/"$sampleName"*_R1_001.fastq.gz
 	fastq1=$file
-	fastq2=${file/_R1_/_R2_}      #repleace "R1" with "R2"
+	fastq2=${file/_R1_/_R2_}      #replace "R1" with "R2"
   echo $file
 	echo $fastq2
 
-	bash /var/pipelines_"$environment"/shell/VarScanPipelinePE.sh -p $fastq1 -q $fastq2 -o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller
+	bash /var/pipelines_"$environment"/shell/VarScanPipelinePE.sh -p $fastq1 -q $fastq2 -o /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller -e $environment
 
 
 	# ##Variant calling
-	echo "Starting variant calling"
+	echo " '$currentdate'    INFO  - Starting variant calling"
 	bash /var/pipelines_"$environment"/shell/illuminaPipeline.sh -r $runID -s $sampleName -i $instrument  -e /doc/ref/Heme/excludedAmplicons.txt -a /doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed -n $environment -q $queueID -u $user -p $password
 
   exit
@@ -211,7 +205,7 @@ then
 	exec >  >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller/process.log)
 	exec 2> >(tee -a /home/environments/$environment/"$instrument"Analysis/$runName/$sampleName/variantCaller/process.log >&2)
 
-	echo "Running illuminaPipeline for :
+	echo " '$currentdate'    INFO  - Running illuminaPipeline for :
 	assay : $assay
 	instrument : $instrument
 	runID : $runID
