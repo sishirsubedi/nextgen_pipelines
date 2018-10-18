@@ -50,7 +50,7 @@ mysql --user="$user" --password="$password" --database="$database" --execute="$i
 
 date_=`date '+%Y-%m-%d %H:%M:%S'`
 currentdate=$(echo $date_ | sed -e 's/ /_/g' -e 's/:/_/g' -e 's/-/_/g' )
-echo " $currentdate    INFO  -  Running nextseq pipelines "
+echo "Time: $(date -Iseconds) - INFO : Running nextseq pipelines "
 touch  /var/pipelines_"$environment"/run_files/"nextseq_$currentdate".txt
 sudo chmod 777  /var/pipelines_"$environment"/run_files/"nextseq_$currentdate".txt
 
@@ -62,7 +62,7 @@ defaultStatus=0
 instrument='nextseq'
 nextseq_statement="select pipelineQueue.queueID , samples.runID from pipelineQueue join samples on samples.sampleID=pipelineQueue.sampleID join assays on assays.assayID = samples.assayID join instruments on instruments.instrumentID = samples.instrumentID where pipelineQueue.status='$defaultStatus'and instruments.instrumentName ='$instrument' order by pipelineQueue.queueID;"
 
-echo " $currentdate    INFO  -    Queued NEXTSEQ jobs are"
+echo "Time: $(date -Iseconds) - INFO : Queued NEXTSEQ jobs are"
 
 ids=()
 
@@ -70,7 +70,7 @@ ids=()
 while  read -r queueID runID ;
 do
 
-	echo " $currentdate    INFO  -  Updating queue status for NEXTSEQ queueID - $queueID"
+	echo "Time: $(date -Iseconds) - INFO : Updating queue status for NEXTSEQ queueID - $queueID"
 
 	#update sampleAnalysisQueue table and set status of this queue to 1 i.e started processing
 	updatestatement="UPDATE pipelineQueue SET status=1 WHERE queueID = $queueID;"
@@ -98,11 +98,11 @@ do
 
   fastqStatus=$(mysql --user="$user" --password="$password" --database="$environment" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
 
-  echo "checking bcl2fastq for runID - $runID and queueid $queueID and runid fastqStatus '$fastqStatus' --"
+  echo "Time: $(date -Iseconds) - INFO : checking bcl2fastq for runID - $runID and queueid $queueID and runid fastqStatus '$fastqStatus' --"
 
 	if [ $fastqStatus == "0" ]
 	then
-    echo "running bcl2fastq for runID - $runID and queueid $queueID and runid fastqStatus '$fastqStatus' --"
+    echo "Time: $(date -Iseconds) - INFO : running bcl2fastq for runID - $runID and queueid $queueID and runid fastqStatus '$fastqStatus' --"
 		## convert bcl2fastq
 		lockdir=/var/pipelines_"$environment"/run_files/nextseq.lock
 		if mkdir "$lockdir" ## mkdir is atomic, file or file variable is not
@@ -110,8 +110,8 @@ do
 
 			updateStatus "$queueID" "bcl2fastq_running_now" "$environment" "$user"  "$password"
 
-			echo " $currentdate    INFO  -  NEXTSEQ successfully acquired lock: $lockdir"
-			echo " $currentdate    INFO  -  NEXTSEQ bcl2fastq running for  run - $runID queueID - $queueID ... "
+			echo "Time: $(date -Iseconds) - INFO : NEXTSEQ successfully acquired lock: $lockdir"
+			echo "Time: $(date -Iseconds) - INFO : NEXTSEQ bcl2fastq running for  run - $runID queueID - $queueID ... "
 
 			runFolder=$(ls -d /home/nextseq/*_"$runID"_*)
 
@@ -128,14 +128,26 @@ do
 
 		else
 
-			echo " $currentdate    INFO  -  NEXTSEQ cannot acquire lock for bcl2fastq conversion $runID, giving up on $lockdir"
-			echo " $currentdate    INFO  -  NEXTSEQ nextseq cron job DID NOT complete at - $currentdate"
+			echo "Time: $(date -Iseconds) - INFO : NEXTSEQ cannot acquire lock for bcl2fastq conversion $runID, giving up on $lockdir"
+			echo "Time: $(date -Iseconds) - INFO : NEXTSEQ nextseq cron job DID NOT complete at - $currentdate"
 
 			#update pipelineQueue table and set status of this queue to 0 i.e try again next time
-			updatestatement="UPDATE pipelineQueue SET pipelineQueue.status=0 WHERE queueID = $queueID;"
-			mysql --user="$user" --password="$password" --database="$environment" --execute="$updatestatement"
+			for idpair_re in "${ids[@]}"
+			do
 
-			updateStatus "$queueID" "bcl2fastq_wait" "$environment" "$user"  "$password"
+				runID_re=$(echo $idpair_re | cut -d "/" -f 1)
+				queueID_re=$(echo $idpair_re | cut -d "/" -f 2)
+
+				if [ $runID_re == $runID ]
+				then
+
+					updatestatement="UPDATE pipelineQueue SET pipelineQueue.status=0 WHERE queueID = $queueID_re;"
+					mysql --user="$user" --password="$password" --database="$environment" --execute="$updatestatement"
+
+					updateStatus "$queueID_re" "bcl2fastq_wait" "$environment" "$user"  "$password"
+				fi
+
+			done
 
 			exit 1
 
@@ -143,8 +155,9 @@ do
 
 	else
 
-		echo "bcl2fastq_completed_past for runID - $runID and queueid $queueID and runid fastqStatus '$fastqStatus' --"
+		echo "Time: $(date -Iseconds) - INFO : bcl2fastq_completed_past for runID - $runID and queueid $queueID and runid fastqStatus '$fastqStatus' --"
 		updateStatus "$queueID" "bcl2fastq_completed_past" "$environment" "$user"  "$password"
+		# this message means sample is already queued and waiting to run
 
 fi
 done
@@ -157,4 +170,4 @@ done
 
 sudo rm -f /var/pipelines_"$environment"/run_files/"nextseq_$currentdate".txt
 
-echo " $currentdate    INFO  -  NEXTSEQ cron job finished running"
+echo "Time: $(date -Iseconds) - INFO : NEXTSEQ cron job finished running"
