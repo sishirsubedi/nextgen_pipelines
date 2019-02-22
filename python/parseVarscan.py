@@ -23,7 +23,7 @@ ENV=sys.argv[3]
 VARSCAN_PVAL=0.01
 NORMAL_DEPTH=25
 TUMOR_DEPTH=20
-NORMAL_ALT_ALLELE_FREQ=20.0
+NORMAL_ALT_ALLELE_FREQ=2.0
 TUMOR_ALT_ALLELE_FREQ=10.0
 NORMAL_STRAND_BIAS_PLUS=15
 NORMAL_STRAND_BIAS_MINUS=4
@@ -31,8 +31,8 @@ TUMOR_STRAND_BIAS_1_MINUS=0
 TUMOR_STRAND_BIAS_1_PLUS=0
 TUMOR_STRAND_BIAS_2_MINUS=2
 TUMOR_STRAND_BIAS_2_PLUS=8
-# FDR=0.0000000001
-FDR=0.01
+FDR=0.0000000001
+
 
 
 
@@ -95,8 +95,8 @@ df_both_pass_s0.reset_index(inplace=True)
 df_both_pass_s0['somatic_p_value_rank']= [ x for x in range(1,df_both_pass_s0.shape[0]+1)]
 df_both_pass_s0['somatic_p_value_adj']= [ pvalAdj(x,df_both_pass_s0.shape[0],FDR) for x in df_both_pass_s0['somatic_p_value_rank']]
 df_both_pass_s0['somatic_p_value_adj_filter']=[1 if x[0]<x[1] else 0 for x in zip(df_both_pass_s0['somatic_p_value'], df_both_pass_s0['somatic_p_value_adj']) ]
-# df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['somatic_p_value_adj_filter']==1]
-df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['somatic_p_value']<=0.04]
+df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['somatic_p_value_adj_filter']==1]
+
 ##################################
 ### alt frequency
 ##################################

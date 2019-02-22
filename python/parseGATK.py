@@ -42,22 +42,21 @@ def calcADJ_QSS(tumor_qss,tumor_depth):
 
 
 
-#
-# df_main = pd.DataFrame()
-# cols=[]
-# # for chr in ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y']:
-# for chr in ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15']:
-#     df=pd.read_csv(OUT_DIR+"chr"+chr+"_gatk.output.vcf.filter.txt",sep='\t')
-#     df['NORMAL.DP'] = df['NORMAL.AD'].apply(calcSum)
-#     df['TUMOR.DP'] = df['TUMOR.AD'].apply(calcSum)
-#     # df = df[(df['NORMAL.DP']>=20) & (df['TUMOR.DP']>=20 )]
-#     df_main = df_main.append(df,ignore_index=True)
-#     if chr =='1':
-#         cols=df.columns
-#
-# # df_main.columns=cols
-# # df_main.to_csv(OUT_DIR+"01_gatk_filter_combine.vcf.txt",sep='\t',index=False)
-#
+
+df_main = pd.DataFrame()
+cols=[]
+for chr in ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y']:
+    df=pd.read_csv(OUT_DIR+"chr"+chr+"_gatk.output.vcf.filter.txt",sep='\t')
+    df['NORMAL.DP'] = df['NORMAL.AD'].apply(calcSum)
+    df['TUMOR.DP'] = df['TUMOR.AD'].apply(calcSum)
+    # df = df[(df['NORMAL.DP']>=20) & (df['TUMOR.DP']>=20 )]
+    df_main = df_main.append(df,ignore_index=True)
+    if chr =='1':
+        cols=df.columns
+
+df_main.columns=cols
+df_main.to_csv(OUT_DIR+SAMPLE+".mutect.combine.vcf.txt",sep='\t',index=False)
+
 
 
 def checkRef(df_snp_mut_2,detail):
@@ -185,7 +184,7 @@ def checkRef(df_snp_mut_2,detail):
         plt.close()
 
 
-df_both= pd.read_csv(OUT_DIR+"01_gatk_combine_vcf.txt",sep='\t')
+df_both= pd.read_csv(OUT_DIR+SAMPLE+".mutect.combine.vcf.txt",sep='\t')
 
 print(df_both.shape)
 
@@ -246,4 +245,4 @@ for indx,row in df_both.iterrows():
 
 df_vcf=pd.DataFrame(vcf)
 df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
-df_vcf.to_csv(OUT_DIR+SAMPLE+"_mutect_filter_vcf.txt",sep='\t',index=False)
+df_vcf.to_csv(OUT_DIR+SAMPLE+".mutect.filter.vcf.txt",sep='\t',index=False)

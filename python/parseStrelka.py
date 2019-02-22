@@ -182,4 +182,4 @@ for indx,row in df_both.iterrows():
 
 df_vcf=pd.DataFrame(vcf)
 df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
-df_vcf.to_csv(OUT_DIR+SAMPLE+"_strelka_filter_vcf.txt",sep='\t',index=False)
+df_vcf.to_csv(OUT_DIR+SAMPLE+".strelka.filter.vcf.txt",sep='\t',index=False)

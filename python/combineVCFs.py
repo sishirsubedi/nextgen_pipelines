@@ -9,42 +9,39 @@ def addVCInfo(row,df):
             (df['POS']==row['POS']) & \
             (df['REF']==row['REF']) & \
             (df['ALT']==row['ALT']) )].shape[0] == 1):
-        return ";"+str(1)
+        return 1
     else:
-        return ";"+str(0)
+        return 0
 
 ##################################
 ### input variables
 ##################################
-
 SAMPLE=sys.argv[1]
 OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
+############################################################
 
 file1 = OUT_DIR+"/varscan/"+SAMPLE+".varscan.filter.vcf.txt"
 df_f1 = pd.read_csv(file1,sep='\t')
-print(df_f1.shape)
 file2 = OUT_DIR+"/mutect/"+SAMPLE+".mutect.filter.vcf.txt"
 df_f2 = pd.read_csv(file2,sep='\t')
-print(df_f2.shape)
 file3 = OUT_DIR+"/strelka/"+SAMPLE+".strelka.filter.vcf.txt"
 df_f3 = pd.read_csv(file3,sep='\t')
-print(df_f3.shape)
+
+
 
 df_all = pd.concat([df_f1,df_f2,df_f3])
-print(df_all.shape)
 df_all.drop_duplicates(subset=['CHROM','POS','ID','REF','ALT'],keep='first',inplace=True)
-print(df_all.shape)
-# df_all.to_csv(OUT_DIR+"/temp",sep='\t',index=False)
+df_all.reset_index(inplace=True)
+print("Unique variants-",df_all.shape)
 
 for indx,row in df_all.iterrows():
-    temp = row['INFO']
-    temp += addVCInfo(row,df_f1)
-    temp += addVCInfo(row,df_f2)
-    temp += addVCInfo(row,df_f3)
-    df_all.loc[indx,'INFO'] = temp
-
-
+    temp=[]
+    temp.append(addVCInfo(row,df_f1))
+    temp.append(addVCInfo(row,df_f2))
+    temp.append(addVCInfo(row,df_f3))
+    df_all.at[indx,'INFO'] += ';'+str(temp[0]) + ';'+str(temp[1]) + ';'+str(temp[2])
 
 df_all['POS'] = df_all['POS'].astype(int)
-df_all.to_csv(OUT_DIR+"/"+SAMPLE+".vc.combine.before.vep.vcf.txt",sep='\t',index=False,header=False)
+df_all=df_all[['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']]
+df_all.to_csv(OUT_DIR+"/"+SAMPLE+".vc.combine.before.vep.vcf.txt",index=False,header=False,sep='\t')
