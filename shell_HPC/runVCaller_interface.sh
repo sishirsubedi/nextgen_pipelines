@@ -65,22 +65,22 @@ done
 
 
 # echo " $currentdate    INFO  -  running VEP"
-/opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
--i ${SAMPLE_DIR}/${SAMPLE}.vc.combine.before.vep.vcf.txt \
--o ${SAMPLE_DIR}/${SAMPLE}.vc.combine.after.vep.vcf.txt \
---offline \
---dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
---vcf \
---refseq \
---pick_allele \
---sift p \
---polyphen p \
---hgvs \
---symbol \
---vcf \
---pubmed \
---fasta $REF_GENOME \
---force_overwrite
+# /opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
+# -i ${SAMPLE_DIR}/${SAMPLE}.vc.combine.before.vep.vcf.txt \
+# -o ${SAMPLE_DIR}/${SAMPLE}.vc.combine.after.vep.vcf.txt \
+# --offline \
+# --dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
+# --vcf \
+# --refseq \
+# --pick_allele \
+# --sift p \
+# --polyphen p \
+# --hgvs \
+# --symbol \
+# --vcf \
+# --pubmed \
+# --fasta $REF_GENOME \
+# --force_overwrite
 
 
 ##### combine vcfs from all variant callers

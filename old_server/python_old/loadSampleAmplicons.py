@@ -24,7 +24,7 @@ def loadIntoDB(inputfile, outputfile, sample, instrument):
         df_amplicon['gene'] = [x.split('.')[0] for x in df_amplicon['ampliconName'].values]
         df_amplicon['sampleID'] = sample
         df_amplicon = df_amplicon[['sampleID','gene','ampliconName','readDepth']]
-        df_amplicon.to_csv(outputfile, sep='\t', index=False)
+        df_amplicon.to_csv(outputfile, sep='\t', index=False,header=False)
 
     elif instrument == 'nextseq':
         df_amplicon = pd.read_csv(inputfile, sep="\t", header=None)
@@ -32,7 +32,7 @@ def loadIntoDB(inputfile, outputfile, sample, instrument):
         df_amplicon['gene'] = [x.split('.')[0] for x in df_amplicon['ampliconName'].values]
         df_amplicon['sampleID'] = sample
         df_amplicon = df_amplicon[['sampleID','gene','ampliconName','readDepth']]
-        df_amplicon.to_csv(outputfile, sep='\t', index=False)
+        df_amplicon.to_csv(outputfile, sep='\t', index=False,header=False)
 
 try:
     parser = optparse.OptionParser()

@@ -75,10 +75,10 @@ log "Running Trimmomatic: Removing sequences < Q20 sample- $SAMPLE"
 trimmomatic="java -jar /opt/trimmomatic/Trimmomatic-0.33/trimmomatic-0.33.jar PE -phred33 -threads 8 \
               ${FASTQ_DIR}${SAMPLE}_R1_001.fastq.gz \
               ${FASTQ_DIR}${SAMPLE}_R2_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_filt_paired_q20_R1_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_filt_unpaired_q20_R1_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_filt_paired_q20_R2_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_filt_unpaired_q20_R2_001.fastq.gz \
+              ${FASTQ_DIR}${SAMPLE}_filt_paired_R1_001.fastq.gz \
+              ${FASTQ_DIR}${SAMPLE}_filt_unpaired_R1_001.fastq.gz \
+              ${FASTQ_DIR}${SAMPLE}_filt_paired_R2_001.fastq.gz \
+              ${FASTQ_DIR}${SAMPLE}_filt_unpaired_R2_001.fastq.gz \
               AVGQUAL:$SEQ_QUALITY "
 ($trimmomatic) 2>&1 | tee ${OUTPUT_DIR_SAMPLE_ALIGNMENT}$SAMPLE.trimmomatic.summary.txt
 
@@ -125,13 +125,13 @@ java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
           BAIT_INTERVALS= /home/hhadmin/exome_pipeline/01_bamQC/cre_design_bed.interval_list \
           TARGET_INTERVALS= /home/hhadmin/exome_pipeline/01_bamQC/cre_design_bed.interval_list
 
-log "#####generating bamtobed sample- $SAMPLE "
-/opt/bedtools2/bin/bedtools bamtobed -i ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bed
-awk '$1 !~ /\_/ {print}' ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bed > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed
-
-
-log "#####generating uniformity calculation sample- $SAMPLE "
-/opt/bedtools2/bin/bedtools coverage -a /home/hhadmin/exome_pipeline/01_bamQC/cre_design.bed -b ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed -mean > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
-# /opt/python3/bin/python3 /home/hhadmin/exome_pipeline/01_bamQC/06_uniformityPlots.py  ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
-
-/opt/samtools19/bin/samtools view ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam | awk '{ n=length($10); print gsub(/[AaTt]/,"",$10)/n;}' > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.ATCount.txt
+# log "#####generating bamtobed sample- $SAMPLE "
+# /opt/bedtools2/bin/bedtools bamtobed -i ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bed
+# awk '$1 !~ /\_/ {print}' ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bed > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed
+#
+#
+# log "#####generating uniformity calculation sample- $SAMPLE "
+# /opt/bedtools2/bin/bedtools coverage -a /home/hhadmin/exome_pipeline/01_bamQC/cre_design.bed -b ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed -mean > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
+# # /opt/python3/bin/python3 /home/hhadmin/exome_pipeline/01_bamQC/06_uniformityPlots.py  ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
+#
+# /opt/samtools19/bin/samtools view ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam | awk '{ n=length($10); print gsub(/[AaTt]/,"",$10)/n;}' > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.ATCount.txt
