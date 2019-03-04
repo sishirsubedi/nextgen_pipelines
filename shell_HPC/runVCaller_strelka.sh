@@ -19,20 +19,20 @@ TUMOR_BAM : $TUMOR_BAM
 OUT_DIR : $OUT_DIR
 "
 
-# ###configuration
-# /opt/strelka/strelka-2.9.10.centos6_x86_64/bin/configureStrelkaSomaticWorkflow.py \
-#     --normalBam $NORMAL_BAM \
-#     --tumorBam $TUMOR_BAM \
-#     --ref $REF \
-#     --runDir $OUT_DIR \
-#     --exome
-#
-# # execution on a single local machine with 8 parallel jobs
-# $OUT_DIR/runWorkflow.py -m local -j 8
-#
-# gunzip < ${OUT_DIR}results/variants/somatic.snvs.vcf.gz > ${OUT_DIR}somatic.snvs.vcf.txt
-#
-# gunzip < ${OUT_DIR}results/variants/somatic.indels.vcf.gz > ${OUT_DIR}somatic.indels.vcf.txt
+###configuration
+/opt/strelka/strelka-2.9.10.centos6_x86_64/bin/configureStrelkaSomaticWorkflow.py \
+    --normalBam $NORMAL_BAM \
+    --tumorBam $TUMOR_BAM \
+    --ref $REF \
+    --runDir $OUT_DIR \
+    --exome
+
+# execution on a single local machine with 8 parallel jobs
+$OUT_DIR/runWorkflow.py -m local -j 8
+
+gunzip < ${OUT_DIR}results/variants/somatic.snvs.vcf.gz > ${OUT_DIR}somatic.snvs.vcf.txt
+
+gunzip < ${OUT_DIR}results/variants/somatic.indels.vcf.gz > ${OUT_DIR}somatic.indels.vcf.txt
 
 java -jar /opt/GATK4/GenomeAnalysisTK.jar \
      -R $REF \
@@ -54,5 +54,4 @@ java -jar /opt/GATK4/GenomeAnalysisTK.jar \
      -o ${OUT_DIR}output.indels.vcf.filter.txt \
      --showFiltered
 
-# /opt/python3/bin/python3 /home/hhadmin/pipelines_ngs_${ENV}/python/parseStrelka_paraEST.py  "$SAMPLE"  "$OUT_DIR"  "$ENV"
-/opt/python3/bin/python3 /home/hhadmin/pipelines_ngs_${ENV}/python/parseStrelka.py  "$SAMPLE"  "$OUT_DIR"  "$ENV"
+/opt/python3/bin/python3 /home/pipelines/ngs_${ENV}/python/parseStrelka.py  "$SAMPLE"  "$OUT_DIR"  "$ENV"

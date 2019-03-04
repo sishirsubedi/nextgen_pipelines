@@ -39,7 +39,7 @@ then
 fi
 chmod 777 $OUTPUT_DIR_SAMPLE
 
-LOG_FILE="${OUTPUT_DIR_SAMPLE}SAMPLE.log"
+LOG_FILE="${OUTPUT_DIR_SAMPLE}${SAMPLE}.log"
 
 function log {
  MESSAGE=$1
@@ -65,7 +65,8 @@ SAMPLE - $SAMPLE
 FASTQ_DIR - $FASTQ_DIR
 OUTPUT_DIR - $OUTPUT_DIR
 OUTPUT_DIR_SAMPLE - $OUTPUT_DIR_SAMPLE
-OUTPUT_DIR_SAMPLE_ALIGNMENT - $OUTPUT_DIR_SAMPLE_ALIGNMENT"
+OUTPUT_DIR_SAMPLE_ALIGNMENT - $OUTPUT_DIR_SAMPLE_ALIGNMENT
+LOG_FILE - $LOG_FILE"
 
 # ##################################################################################################
 # # Trimmomatic to remove adapters and select reads with average read quality q20
@@ -75,48 +76,48 @@ log "Running Trimmomatic: Removing sequences < Q20 sample- $SAMPLE"
 trimmomatic="java -jar /opt/trimmomatic/Trimmomatic-0.33/trimmomatic-0.33.jar PE -phred33 -threads 8 \
               ${FASTQ_DIR}${SAMPLE}_R1_001.fastq.gz \
               ${FASTQ_DIR}${SAMPLE}_R2_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_filt_paired_R1_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_filt_unpaired_R1_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_filt_paired_R2_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_filt_unpaired_R2_001.fastq.gz \
+              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
+              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R1_001.fastq.gz \
+              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz \
+              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R2_001.fastq.gz \
               AVGQUAL:$SEQ_QUALITY "
-($trimmomatic) 2>&1 | tee ${OUTPUT_DIR_SAMPLE_ALIGNMENT}$SAMPLE.trimmomatic.summary.txt
+($trimmomatic) 2>&1 | tee ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.trimmomatic.summary.txt
 
 
-log "Running bwa mem aligner: Removing sequences < mapQ20 sample- $SAMPLE"
-sudo bash ${DIR_SCRIPT}shell/bwaAlign_exome.sh  $SAMPLE  \
-												$REF_1  \
-												$MAP_QUALITY \
-												${FASTQ_DIR}${SAMPLE}_filt_paired_q20_R1_001.fastq.gz \
-											  ${FASTQ_DIR}${SAMPLE}_filt_paired_q20_R2_001.fastq.gz  \
-												$OUTPUT_DIR_SAMPLE_ALIGNMENT \
-												$LOG_FILE
+log "Running bwa mem aligner: $SAMPLE"
+bash ${DIR_SCRIPT}shell/bwaAlign_exome.sh  $SAMPLE  \
+					$REF_GENOME  \
+					$MAP_QUALITY \
+					${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
+					${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz  \
+				  $OUTPUT_DIR_SAMPLE_ALIGNMENT  \
+					$LOG_FILE
 
 
-log " generating sorted bam by coordinate sample- $SAMPLE"
+log "Generating sorted bam by coordinate sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar SortSam \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bam  \
           O=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam  \
           SORT_ORDER=coordinate
 
-log "#####generating alignment stat sample- $SAMPLE"
+log "Generating alignment stat sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar CollectAlignmentSummaryMetrics \
           R=$REF_GENOME \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam \
           O=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam.alignmentMetrics.txt
 
-log "#####removing duplicates sample- $SAMPLE "
+log "Removing duplicates sample- $SAMPLE "
 java -jar /opt/picard2/picard.jar MarkDuplicates \
           REMOVE_DUPLICATES=true \
           INPUT=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam \
           OUTPUT=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam \
           METRICS_FILE=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam.metrics.txt
 
-log "#####generating bam index sample- $SAMPLE"
+log "Generating bam index sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar BuildBamIndex \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam
 
-log "#####generating CalculateHsMetrics sample- $SAMPLE "
+log "Generating CalculateHsMetrics sample- $SAMPLE "
 # # java -jar /opt/picard/picard-tools-1.134/picard.jar BedToIntervalList  I=cre_v1_design.bed O=/home/hhadmin/exome_pipeline/01_bamQC/cre_v1_design_bed.interval_list SD=/doc/ref/ref_genome/ucsc.hg19.dict
 java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam  \

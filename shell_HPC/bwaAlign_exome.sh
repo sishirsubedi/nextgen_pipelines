@@ -10,9 +10,9 @@ LOG_FILE=$7
 function log {
  MESSAGE=$1
  TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
- SCRIPT="runAlignment_Interface.sh"
+ SCRIPT="bwaAlign_exome.sh"
  echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE "
- echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE " >>${LOG_FILE}
+ echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE " >> ${LOG_FILE}
 }
 
 log "Starting BWA alignment and generating bam file for:

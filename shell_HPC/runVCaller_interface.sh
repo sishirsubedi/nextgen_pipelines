@@ -2,7 +2,8 @@
 
 ENV="test"
 DIR_SCRIPT="/home/pipelines/ngs_${ENV}/"
-REF_GENOME="/home/doc/ref/ref_genome/Homo_sapiens.GRCh37.73.dna_sm.primary_assembly.fa"
+REF_GENOME_1="/home/doc/ref/ref_genome/ucsc.hg19.fasta"
+REF_GENOME_2="/home/doc/ref/ref_genome/Homo_sapiens.GRCh37.73.dna_sm.primary_assembly.fa"
 
 
 #################################################
@@ -34,8 +35,8 @@ SAMPLE+="_"$(echo "${NORMAL_BAM##*/}"| tr "." "\n" | head -1 )
 SAMPLE_DIR=${OUT_DIR}${SAMPLE}
 
 if [ ! -d $SAMPLE_DIR ] ; then
-	sudo mkdir $SAMPLE_DIR
-	sudo chmod 777 $SAMPLE_DIR
+	mkdir $SAMPLE_DIR
+	chmod 775 $SAMPLE_DIR
 fi
 
 #get all variant callers in list
@@ -44,24 +45,24 @@ VCS=$(echo $VARIANT_CALLERS | tr "-" "\n")
 for v_caller in $VCS;do
 
 	if [ ! -d ${SAMPLE_DIR}/${v_caller} ] ; then
-		sudo mkdir ${SAMPLE_DIR}/${v_caller}
-		sudo chmod 777 ${SAMPLE_DIR}/${v_caller}
+		mkdir ${SAMPLE_DIR}/${v_caller}
+		chmod 775 ${SAMPLE_DIR}/${v_caller}
 	fi
 
 	if [[ "$v_caller" = "varscan" ]];then
 		echo "Starting : " $v_caller
-		# bash ${DIR_SCRIPT}shell/runVCaller_varscan.sh "$SAMPLE" "$REF_1"  "$NORMAL_BAM"  "$TUMOR_BAM"  "${SAMPLE_DIR}/${v_caller}/"  "$ENV"
-	elif [[ "$v_caller" = "mutect" ]]; then
-		echo "Starting : " $v_caller
-		# bash ${DIR_SCRIPT}shell/runVCaller_mutect.sh $SAMPLE $REF_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
+		bash ${DIR_SCRIPT}shell/runVCaller_varscan.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
 	elif [[ "$v_caller" = "strelka" ]]; then
 		echo "Starting : " $v_caller
-		# bash ${DIR_SCRIPT}shell/runVCaller_strelka.sh $SAMPLE $REF_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
+		bash ${DIR_SCRIPT}shell/runVCaller_strelka.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
+	elif [[ "$v_caller" = "mutect" ]]; then
+		echo "Starting : " $v_caller
+		bash ${DIR_SCRIPT}shell/runVCaller_mutect.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
   fi
 done
 
 # ###### combine vcfs from all variant callers
-/opt/python3/bin/python3 ${DIR_SCRIPT}python/combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"
+# /opt/python3/bin/python3 ${DIR_SCRIPT}python/combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"
 
 
 # echo " $currentdate    INFO  -  running VEP"
@@ -79,9 +80,9 @@ done
 # --symbol \
 # --vcf \
 # --pubmed \
-# --fasta $REF_GENOME \
+# --fasta $REF_GENOME_2 \
 # --force_overwrite
 
 
 ##### combine vcfs from all variant callers
-/opt/python3/bin/python3 ${DIR_SCRIPT}python/parseVEP.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"
+# /opt/python3/bin/python3 ${DIR_SCRIPT}python/parseVEP.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"
