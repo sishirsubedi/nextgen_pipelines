@@ -61,10 +61,11 @@ done
 # functions
 ################################################################################
 
-function log() {
+log()
+{
  MESSAGE=$1
  TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
- SCRIPT="ionPipeline"
+ SCRIPT=$( basename $0 )
  echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE "
 }
 
@@ -88,7 +89,7 @@ runID : $runID
 sampleName : $sampleName
 coverageID : $coverageID
 callerID : $callerID
-queueID : $queueID" 
+queueID : $queueID"
 
 
 if [ $instrument != "proton" ]
@@ -151,17 +152,17 @@ log " $currentdate    INFO  -  Processing $SAMPLE_FILE"
 #
 ################################################################################
 
-if [ ! -d ${ENV_HOME}$callerID ]
-then
-	mkdir ${ENV_HOME}$callerID
-fi
-chmod 775 ${ENV_HOME}$callerID
-
-if [ ! -d ${ENV_HOME}$coverageID ]
-then
-	mkdir ${ENV_HOME}$coverageID
-fi
-chmod 775 ${ENV_HOME}$coverageID
+# if [ ! -d ${ENV_HOME}$callerID ]
+# then
+# 	mkdir ${ENV_HOME}$callerID
+# fi
+# chmod 775 ${ENV_HOME}$callerID
+#
+# if [ ! -d ${ENV_HOME}$coverageID ]
+# then
+# 	mkdir ${ENV_HOME}$coverageID
+# fi
+# chmod 775 ${ENV_HOME}$coverageID
 
 ##get runDate information
 declare -A months

@@ -4,7 +4,7 @@ export SHELL=/usr/bin/bash
 ENV="test"
 DIR_SCRIPT="/home/pipelines/ngs_${ENV}/"
 REF_GENOME="/home/doc/ref/ref_genome/ucsc.hg19.fasta"
-
+$MAP_QUALITY="20"
 #################################################
 # Parsing arguments
 #################################################
@@ -14,8 +14,6 @@ echo "Usage: runAlignment_Interface.sh"
 echo "-s Sample Name"
 echo "-f Fastq Dir"
 echo "-o Output Dir"
-echo "-q average sequence quality"
-echo "-m average map quality"
 exit
 fi
 
@@ -24,8 +22,6 @@ while getopts :s:f:o:q:m: option; do
     s) SAMPLE="$OPTARG" ;;
     f) FASTQ_DIR="$OPTARG" ;;
     o) OUTPUT_DIR="$OPTARG" ;;
-		q) SEQ_QUALITY="$OPTARG" ;;
-		m) MAP_QUALITY="$OPTARG" ;;
     :) echo "Option -$OPTARG requires an argument." ;;
 	  \?) echo "Invalid option: -$OPTARG" ;;
 	esac
@@ -72,26 +68,26 @@ LOG_FILE - $LOG_FILE"
 # # Trimmomatic to remove adapters and select reads with average read quality q20
 # ##################################################################################################
 
-log "Running Trimmomatic: Removing sequences < Q20 sample- $SAMPLE"
-trimmomatic="java -jar /opt/trimmomatic/Trimmomatic-0.33/trimmomatic-0.33.jar PE -phred33 -threads 8 \
-              ${FASTQ_DIR}${SAMPLE}_R1_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_R2_001.fastq.gz \
-              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
-              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R1_001.fastq.gz \
-              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz \
-              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R2_001.fastq.gz \
-              AVGQUAL:$SEQ_QUALITY "
-($trimmomatic) 2>&1 | tee ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.trimmomatic.summary.txt
-
-
-log "Running bwa mem aligner: $SAMPLE"
-bash ${DIR_SCRIPT}shell/bwaAlign_exome.sh  $SAMPLE  \
-					$REF_GENOME  \
-					$MAP_QUALITY \
-					${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
-					${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz  \
-				  $OUTPUT_DIR_SAMPLE_ALIGNMENT  \
-					$LOG_FILE
+# log "Running Trimmomatic: Removing sequences < Q20 sample- $SAMPLE"
+# trimmomatic="java -jar /opt/trimmomatic/Trimmomatic-0.33/trimmomatic-0.33.jar PE -phred33 -threads 8 \
+#               ${FASTQ_DIR}${SAMPLE}_R1_001.fastq.gz \
+#               ${FASTQ_DIR}${SAMPLE}_R2_001.fastq.gz \
+#               ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
+#               ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R1_001.fastq.gz \
+#               ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz \
+#               ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R2_001.fastq.gz \
+#               AVGQUAL:20 "
+# ($trimmomatic) 2>&1 | tee ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.trimmomatic.summary.txt
+#
+#
+# log "Running bwa mem aligner: $SAMPLE"
+# bash ${DIR_SCRIPT}shell/bwaAlign_exome.sh  $SAMPLE  \
+# 					$REF_GENOME  \
+# 					$MAP_QUALITY \
+# 					${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
+# 					${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz  \
+# 				  $OUTPUT_DIR_SAMPLE_ALIGNMENT  \
+# 					$LOG_FILE
 
 
 log "Generating sorted bam by coordinate sample- $SAMPLE"

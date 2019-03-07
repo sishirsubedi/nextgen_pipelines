@@ -4,178 +4,181 @@
 # Molecular Diagnostic
 #
 #Description:
-#This script checks parameters, creates run and sample directory 
+#This script checks parameters, creates run and sample directory
 # and calls pipeline script.
 ##############################################################################
 
 #!/bin/bash
 
-################################################################################
-# assign Variables
-################################################################################
+# ##############################################################################
+# # functions
+# ##############################################################################
 
-while getopts :r:s:c:v:a:i:e:q:u:p: opt ; do
-	case $opt in
-	r)
-		runID=$OPTARG
-		;;
-	s)
-	  sampleName=$OPTARG
-		;;
-	c)
-	  coverageID=$OPTARG
-	  ;;
-	v)
-		callerID=$OPTARG
-		;;
-	a)
-		assay=$OPTARG
-		;;
-	i)
-    instrument=$OPTARG
-	  ;;
-  e)
-    environment=$OPTARG
-	  ;;
-  q)
-		queueID=$OPTARG
-		;;
-		u)
-		  user=$OPTARG
-		  ;;
-		p)
-		  password=$OPTARG
-		  ;;
-	:)
-		echo "Option -$OPTARG requires an argument."
-		;;
-	\?)
-		echo "Invalid option: -$OPTARG"
-	esac
-done
-	shift $((OPTIND-1))
+display_usuage()
+{
+cat <<EOF >> /dev/stderr
 
-################################################################################
-# functions
-################################################################################
-function log() {
+ USAGE: $0
+
+ OPTIONS:
+ r - runID
+ s - sampleName
+ c - coverageID
+ v - callerID
+ a - assay
+ i - instrument
+ e - environment
+ q - queueID
+ u - user
+ p - password
+
+EOF
+}
+
+parse_options()
+{
+    IMPORT=0
+
+		while getopts "hz:r:s:c:v:a:i:e:q:u:p:" opt ; do
+				case $opt in
+					h)
+						 display_usuage
+						 exit 1
+						 ;;
+					z)
+						IMPORT=$OPTARG
+						;;
+					r)
+						RUNID=$OPTARG
+						;;
+					s)
+					  SAMPLENAME=$OPTARG
+						;;
+					c)
+					  COVERAGEID=$OPTARG
+					  ;;
+					v)
+						CALLERID=$OPTARG
+						;;
+					a)
+						ASSAY=$OPTARG
+						;;
+					i)
+				    INSTRUMENT=$OPTARG
+					  ;;
+				  e)
+				    ENVIRONMENT=$OPTARG
+					  ;;
+				  q)
+						QUEUEID=$OPTARG
+						;;
+					u)
+						USER=$OPTARG
+						;;
+					p)
+						PASSWORD=$OPTARG
+						;;
+					:)
+						echo "Option -$OPTARG requires an argument."
+						;;
+					\?)
+						echo "Invalid option: -$OPTARG"
+			esac
+	  done
+		if [ $IMPORT -gt 0 ] ; then
+				return 0
+		fi
+		return 1
+}
+
+log()
+{
  MESSAGE=$1
  TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
- SCRIPT="ionPipeline_Interface"
+ SCRIPT=$( basename $0 )
  echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE "
 }
 
-function updateStatus() {
-user=$4
-password=$5
-database="ngs_$3"
-insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
-mysql --host="hhplabngsp01" --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
+
+create_dir()
+{
+	n_dir=$1
+	if [ ! -d $n_dir ] ; then
+		mkdir $n_dir
+	fi
+	chmod 775 $n_dir
 }
 
-################################################################################
-# initialize variables
-################################################################################
+run_gene50()
+{
+	NEURO_EXCLUDED_AMPLICON="/home/doc/ref/neuralRef/excludedAmplicon.txt"
+	NEURO_EXCLUDED_DESIGN="/home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed"
 
-variantFolder=$(ls -d /home/$instrument/*$runID/plugin_out/"$callerID")
-ampliconFolder=$(ls -d /home/$instrument/*"$runID"/plugin_out/"$coverageID")
-runFolder=$(ls -d /home/$instrument/*$runID)
-runName=${runFolder##*/}
-ENV_HOME="/home/environments/ngs_${environment}/${instrument}Analysis/"
-SCRIPT_HOME="/home/pipelines/ngs_${environment}/shell/"
-NEURO_EXCLUDED_AMPLICON="/home/doc/ref/neuralRef/excludedAmplicon.txt"
-NEURO_EXCLUDED_DESIGN="/home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed"
+	bash ${HOME_SHELLDIR}ionPipeline.sh -r $RUNID -s $SAMPLENAME -c $COVERAGEID -v $CALLERID \
+																		-i $INSTRUMENT  -e $NEURO_EXCLUDED_AMPLICON -a $NEURO_EXCLUDED_DESIGN \
+																		-n $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
+}
 
+run_neuro()
+{
+	bash ${HOME_SHELLDIR}ionPipeline.sh -r $RUNID -s $SAMPLENAME -c $COVERAGEID -v $CALLERID \
+																		-i $INSTRUMENT \
+																		-n $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
+}
 
-################################################################################
-#
-################################################################################
+# ##############################################################################
+# main
+# ##############################################################################
+main()
+{
+    parse_options $*
 
-log " Running ionPipeline Interface for :
-assay : $assay
-instrument : $instrument
-runID : $runID
-sampleName : $sampleName
-coverageID : $coverageID
-callerID : $callerID
-environment : $environment
-queueID : $queueID "
+    if [ $? -eq 0 ]
+    then
+			  echo "Error in previous step. Aborting $0"
+        exit 0
+    fi
 
+		################################################################################
+		# initialize variables
+		################################################################################
 
-if [ -z $runID ] || [ -z $sampleName ] || [ -z $coverageID ] || [ -z $callerID ] || [ -z $assay ] || [ -z $instrument ] || [ -z $environment ]
-then
-	echo "Error: Please input required parameters-"
-	echo "-r runID: three digits, last number of the run"
-	echo "-s sampleName"
-	echo "-c coverageID: coverage analysis"
-	echo "-v callerID: variant caller"
-	echo "-a assay"
-	echo "-i instrument"
-	echo "-e environment"
-	exit
-fi
-
-if [ ! -d /home/$instrument/*"$runID"/plugin_out/"$coverageID"/ ]
-then
-	echo "coverage folder for run ID:$runID; coverage ID:$coverageID not found"
-    updateStatus "$queueID" "ERROR:Instrument_coverageID" "$environment" "$user"  "$password"
-	exit
-fi
-
-if [ ! -d /home/$instrument/*"$runID"/plugin_out/"$callerID"/ ]
-then
-	echo "variant folder for run ID:$runID; variant caller ID:$callerID not found"
-	  updateStatus "$queueID" "ERROR:Instrument_callerID" $environment "$user"  "$password"
-	exit
-fi
+		VARIANTFOLDER=$(ls -d /home/$INSTRUMENT/*$runID/plugin_out/"$CALLERID")
+		AMPLICONFOLDER=$(ls -d /home/$INSTRUMENT/*"$RUNID"/plugin_out/"$COVERAGEID")
+		RUNFOLDER=$(ls -d /home/$INSTRUMENT/*$RUNID)
+		RUNNAME=${RUNFOLDER##*/}
+		HOME="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/"
+		HOME_SHELLDIR="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 
 
-if [ ! -d ${ENV_HOME}$runName ]
-then
-	mkdir ${ENV_HOME}$runName
-fi
-chmod 775 ${ENV_HOME}$runName
+		log " Running ionPipeline Interface for :
+		assay : $ASSAY
+		instrument : $INSTRUMENT
+		runID : $RUNID
+		sampleName : $SAMPLENAME
+		coverageID : $COVERAGEID
+		callerID : $CALLERID
+		environment : $ENVIRONMENT
+		queueID : $QUEUEID "
 
-if [ ! -d ${ENV_HOME}${runName}/$sampleName ]
-then
-	mkdir ${ENV_HOME}${runName}/$sampleName
-fi
-chmod 775 ${ENV_HOME}${runName}/$sampleName
+		create_dir ${HOME}$RUNNAME
+		create_dir ${HOME}${RUNNAME}/$SAMPLENAME
+		create_dir ${HOME}${RUNNAME}/${SAMPLENAME}/$CALLERID
+		create_dir ${HOME}${RUNNAME}/${SAMPLENAME}/$COVERAGEID
+
+		exec >  >(tee -a ${HOME}${RUNNAME}/${SAMPLENAME}/process.log)
+		exec 2> >(tee -a ${HOME}${RUNNAME}/${SAMPLENAME}/process.log >&2)
+
+		if [ $assay == "neuro" ] ; then
+			run_gene50
+		elif [ $assay == "gene50" ] ; then
+			run_neuro
+		fi
+}
 
 
-exec >  >(tee -a ${ENV_HOME}${runName}/${sampleName}/process.log)
-exec 2> >(tee -a ${ENV_HOME}${runName}/${sampleName}/process.log >&2)
+# ##############################################################################
+# run main
+# ##############################################################################
 
-
-if [ $assay == "neuro" ]
-then
-
-	bash ${SCRIPT_HOME}ionPipeline.sh -r $runID -s $sampleName -c $coverageID -v $callerID \
-																		-i $instrument  -e $NEURO_EXCLUDED_AMPLICON -a $NEURO_EXCLUDED_AMPLICON \
-																		-n $environment -q $queueID -u $user -p $password
-	exit
-
-elif [ $assay == "gene50" ]
-then
-
-	bash ${SCRIPT_HOME}ionPipeline.sh -r $runID -s $sampleName -c $coverageID -v $callerID \
-																		-i $instrument -n $environment -q $queueID -u $user -p $password
-	exit
-
-else
-
-	echo "Error: Failed ionPipeline for:
-	assay : $assay
-	instrument : $instrument
-	runID : $runID
-	sampleName : $sampleName
-	coverageID : $coverageID
-	callerID : $callerID
-	environment : $environment
-	queueID : $queueID "
-	echo "Not valid assay - $assay and instrument - $instrument. Process Terminated."
-  updateStatus "$queueID" "ERROR:assay_inst" $environment "$user"  "$password"
-	exit
-fi
-
-done
+main $*
