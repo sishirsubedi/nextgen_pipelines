@@ -1,9 +1,23 @@
+##############################################################################
+#
+# Houston Methodist Hospital
+# Molecular Diagnostic
+#
+#Description:
+#This script checks samples queued in instrument/assay specific txt file
+# and calls appropriate interface script.
+#Allocates appropriate PBS parameters.
+##############################################################################
+
 #!/bin/bash
 #PBS -l nodes=n001.cluster.com
 #PBS -l walltime=99:00:00
 #PBS -q default
 #PBS -k eo
 
+################################################################################
+# assign Variables
+################################################################################
 
 while getopts :c:e:u:p: opt; do
 				case $opt in
@@ -28,6 +42,20 @@ while getopts :c:e:u:p: opt; do
 done
 	  shift $((OPTIND -1))
 
+
+################################################################################
+# functions
+################################################################################
+function log() {
+	MESSAGE=$1
+	TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
+	SCRIPT="submitJob_proton_gene50"
+	echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE "
+}
+
+################################################################################
+# initialize Variables
+################################################################################
 INSTRUMENT="proton"
 ASSAY="gene50"
 HOME="/home/pipelines/ngs_${ENVIRONMENT}/"
@@ -36,13 +64,9 @@ HOME_SHELLDIR="${HOME}shell/"
 DB="ngs_${ENVIRONMENT}"
 
 
-function log() {
- MESSAGE=$1
- TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
- SCRIPT="submitJob_proton_gene50"
- echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE "
-}
-
+################################################################################
+#
+################################################################################
 
 log "Running from QSUB:
 ENVIRONMENT - $ENVIRONMENT
@@ -50,7 +74,7 @@ INSTRUMENT - $INSTRUMENT
 ASSAY - Gene50
 FILE_ID - $FILE_ID
 SAMPLES -------------------------------------------------"
-cat ${HOME_RUNDIR}proton_gene50_${FILE_ID}.samples| while IFS=';' read -ra line; do
+cat ${HOME_RUNDIR}${INSTRUMENT}_${ASSAY}_${FILE_ID}.samples| while IFS=';' read -ra line; do
 echo "
 RUN-ID : "${line[0]}"
 SAMPLE-ID : "${line[1]}"
@@ -61,7 +85,7 @@ CALLER-ID : "${line[4]}"
 done
 echo " -------------------------------------------------"
 
-cat ${HOME_RUNDIR}proton_gene50_${FILE_ID}.samples| while IFS=';' read -ra line; do
+cat ${HOME_RUNDIR}${INSTRUMENT}_${ASSAY}_${FILE_ID}.samples| while IFS=';' read -ra line; do
 	QUEUEID="${line[0]}"
 	RUNID="${line[1]}"
 	SAMPLENAME="${line[2]}"

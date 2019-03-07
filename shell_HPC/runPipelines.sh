@@ -1,15 +1,15 @@
-##############################################################################
+#!/bin/bash
+#===================================================================================
 #
-# Houston Methodist Hospital
-# Molecular Diagnostic
+# FILE: runPipelines.sh
 #
-#Script: NGS
-#Description:
-# This script is run by cronjob. It checks NGS database queue and submits jobs.
-#
-##############################################################################
-
-#!/usr/bin/env bash
+#DESCRIPTION: This script is run by cronjob.It checks the queue table in NGS
+#             database and submits a sample qsub based on instrument and assay.
+# OPTIONS: see function ’usage’ below
+# REQUIREMENTS:
+# COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
+# REVISION:
+#===================================================================================
 
 if [ $# -ne 6 ] ; then
 	echo "Usage: runPipelines.sh";
@@ -41,16 +41,7 @@ else
 fi
 
 ################################################################################
-# Initialize Variables
-################################################################################
-
-HOME="/home/pipelines/ngs_${ENVIRONMENT}/"
-HOME_RUNDIR="${HOME}run_files/"
-HOME_SHELLDIR="${HOME}shell/"
-DB="ngs_${ENVIRONMENT}"
-
-################################################################################
-#
+# functions
 ################################################################################
 
 function log() {
@@ -68,14 +59,16 @@ function createSampleFiles() {
 	chmod 775  ${HOME_RUNDIR}${instrument}_${assay}_${current_dt}".samples"
 }
 
-function submitJob() {
-  current_dt=$1
-	instrument=$2
-	assay=$3
-  samfile="${HOME_RUNDIR}${instrument}_${assay}_${current_dt}".samples""
-}
+################################################################################
+# initialize Variables
+################################################################################
 
-
+HOME="/home/pipelines/ngs_${ENVIRONMENT}/"
+HOME_RUNDIR="${HOME}run_files/"
+HOME_SHELLDIR="${HOME}shell/"
+DB="ngs_${ENVIRONMENT}"
+DATE_=`date '+%Y-%m-%d %H'`
+CURRENTDT=$(echo $DATE_ | sed -e 's/ /_/g' -e 's/:/_/g' -e 's/-/_/g' )
 DEFAULT_STATUS=0
 STATUS_QUERY_STATEMENT="select pipelineQueue.queueID, samples.runID, samples.sampleName, \
 samples.coverageID, samples.callerID, assays.assayName, instruments.instrumentName, \
@@ -84,48 +77,51 @@ join samples on samples.sampleID=pipelineQueue.sampleID \
 join assays on assays.assayID = samples.assayID \
 join instruments on instruments.instrumentID = samples.instrumentID \
 where pipelineQueue.status='$DEFAULT_STATUS';"
-
-
-date_=`date '+%Y-%m-%d %H'`
-CURRENTDT=$(echo $date_ | sed -e 's/ /_/g' -e 's/:/_/g' -e 's/-/_/g' )
-createSampleFiles "$CURRENTDT" "proton" "gene50"
-# createSampleFiles "$CURRENTDT" "proton" "neuro"
-
 INSTRUMENT_ASSAY_PAIR=()
 
-while read -r queueID  runID  sampleName coverageID callerID assay instrument status;
-do
+################################################################################
+#
+################################################################################
+
+while read -r queueID runID  sampleName coverageID callerID assay instrument status; do
+
 	 log "Submitting job to QSUB:
+	 ENVIRONMENT - $ENVIRONMENT
+	 INSTRUMENT - $instrument
+	 ASSAY - $assay
 	 QUEUEID - $queueID
 	 QUEUE_STATUS - $status
 	 RUNID - $runID
 	 SAMPLE - $sampleName
 	 COVERAGE - $coverageID
-	 CALLER - $callerID
-	 ASSAY - $assay
-	 INSTRUMENT - $instrument
-	 ENVIRONMENT - $ENVIRONMENT"
+	 CALLER - $callerID"
 
    ####update sampleAnalysisQueue table and set status of this queue to 1 i.e started processing
    updatestatement="update pipelineQueue SET status=1 where queueID = $queueID;"
 	 mysql  --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
 
 
+	 if [ -f ${HOME_RUNDIR}${instrument}_${assay}_${CURRENTDT}.samples ]; then
+	 		createSampleFiles "$CURRENTDT" "$instrument" "$assay"
+   fi
+
 	 if [ "$instrument" == "proton" ] && [ "$assay" == "neuro" ] ; then
 		 INSTRUMENT_ASSAY_PAIR+=("$instrument/$assay")
-		 echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUNDIR}proton_neuro_${CURRENTDT}.samples
+		 echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUNDIR}${instrument}_${assay}_${CURRENTDT}.samples
 	 elif [ "$instrument" == "proton" ] && [ "$assay" == "gene50" ] ; then
 		 INSTRUMENT_ASSAY_PAIR+=("$instrument/$assay")
-		 echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUNDIR}proton_gene50_${CURRENTDT}.samples
+		 echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUNDIR}${instrument}_${assay}_${CURRENTDT}.samples
    fi
 
 done < <(mysql --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$STATUS_QUERY_STATEMENT" -N)
 
-echo "$INSTRUMENT_ASSAY_PAIR"
 
+################################################################################
+# submit QSUBS
+################################################################################
+
+### get unique instrument - assay pair
 unique_INSTRUMENT_ASSAY_PAIR=($(printf "%s\n" "${INSTRUMENT_ASSAY_PAIR[@]}" | sort -u))
-
-echo "$unique_INSTRUMENT_ASSAY_PAIR"
 
 for ins_assay_pair in "${unique_INSTRUMENT_ASSAY_PAIR[@]}" ; do
 
@@ -137,5 +133,6 @@ for ins_assay_pair in "${unique_INSTRUMENT_ASSAY_PAIR[@]}" ; do
 
 done
 
+log "Completed cronjob for runPipelines."
 
 exit

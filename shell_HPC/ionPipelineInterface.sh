@@ -1,26 +1,20 @@
+##############################################################################
+#
+# Houston Methodist Hospital
+# Molecular Diagnostic
+#
+#Description:
+#This script checks parameters, creates run and sample directory 
+# and calls pipeline script.
+##############################################################################
+
 #!/bin/bash
 
-if [ $# -eq 0 ]
-then
-	echo "Usage: ionPipeline_Interface.sh"
-	echo "-r runID: three digits, last number of the run"
-	echo "-s sampleName"
-	echo "-c coverageID: coverage analysis"
-	echo "-v callerID: variant caller"
-	echo "-a assay"
-	echo "-i instrument"
-	echo "-e environment"
-	echo "-q queueID"
-	echo "-u user"
-	echo "-p password"
-	exit
-fi
+################################################################################
+# assign Variables
+################################################################################
 
-
-if test $# -gt 0
-	then
-	while getopts :r:s:c:v:a:i:e:q:u:p: opt
-	do
+while getopts :r:s:c:v:a:i:e:q:u:p: opt ; do
 	case $opt in
 	r)
 		runID=$OPTARG
@@ -58,10 +52,12 @@ if test $# -gt 0
 	\?)
 		echo "Invalid option: -$OPTARG"
 	esac
-	done
+done
 	shift $((OPTIND-1))
-fi
 
+################################################################################
+# functions
+################################################################################
 function log() {
  MESSAGE=$1
  TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
@@ -77,13 +73,23 @@ insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VAL
 mysql --host="hhplabngsp01" --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
 }
 
+################################################################################
+# initialize variables
+################################################################################
 
 variantFolder=$(ls -d /home/$instrument/*$runID/plugin_out/"$callerID")
 ampliconFolder=$(ls -d /home/$instrument/*"$runID"/plugin_out/"$coverageID")
 runFolder=$(ls -d /home/$instrument/*$runID)
 runName=${runFolder##*/}
-ENV_HOME="/home/environments/ngs_${environment}/"
+ENV_HOME="/home/environments/ngs_${environment}/${instrument}Analysis/"
 SCRIPT_HOME="/home/pipelines/ngs_${environment}/shell/"
+NEURO_EXCLUDED_AMPLICON="/home/doc/ref/neuralRef/excludedAmplicon.txt"
+NEURO_EXCLUDED_DESIGN="/home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed"
+
+
+################################################################################
+#
+################################################################################
 
 log " Running ionPipeline Interface for :
 assay : $assay
@@ -124,33 +130,36 @@ then
 fi
 
 
-if [ ! -d ${ENV_HOME}${instrument}Analysis/$runName ]
+if [ ! -d ${ENV_HOME}$runName ]
 then
-	mkdir ${ENV_HOME}${instrument}Analysis/$runName
+	mkdir ${ENV_HOME}$runName
 fi
-chmod 775 ${ENV_HOME}${instrument}Analysis/$runName
+chmod 775 ${ENV_HOME}$runName
 
-if [ ! -d ${ENV_HOME}${instrument}Analysis/$runName/$sampleName ]
+if [ ! -d ${ENV_HOME}${runName}/$sampleName ]
 then
-	mkdir ${ENV_HOME}${instrument}Analysis/$runName/$sampleName
+	mkdir ${ENV_HOME}${runName}/$sampleName
 fi
-chmod 777 ${ENV_HOME}${instrument}Analysis/$runName/$sampleName
+chmod 775 ${ENV_HOME}${runName}/$sampleName
 
 
-exec >  >(tee -a ${ENV_HOME}${instrument}Analysis/$runName/$sampleName/process.log)
-exec 2> >(tee -a ${ENV_HOME}${instrument}Analysis/$runName/$sampleName/process.log >&2)
+exec >  >(tee -a ${ENV_HOME}${runName}/${sampleName}/process.log)
+exec 2> >(tee -a ${ENV_HOME}${runName}/${sampleName}/process.log >&2)
 
-# running ionPipeline scripts based on assay and instrument
+
 if [ $assay == "neuro" ]
 then
 
-	bash ${SCRIPT_HOME}ionPipeline.sh -r $runID -s $sampleName -c $coverageID -v $callerID -i $instrument  -e /home/doc/ref/neuralRef/excludedAmplicon.txt -a /home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed -n $environment -q $queueID -u $user -p $password
+	bash ${SCRIPT_HOME}ionPipeline.sh -r $runID -s $sampleName -c $coverageID -v $callerID \
+																		-i $instrument  -e $NEURO_EXCLUDED_AMPLICON -a $NEURO_EXCLUDED_AMPLICON \
+																		-n $environment -q $queueID -u $user -p $password
 	exit
 
 elif [ $assay == "gene50" ]
 then
 
-	bash ${SCRIPT_HOME}ionPipeline.sh -r $runID -s $sampleName -c $coverageID -v $callerID -i $instrument -n $environment -q $queueID -u $user -p $password
+	bash ${SCRIPT_HOME}ionPipeline.sh -r $runID -s $sampleName -c $coverageID -v $callerID \
+																		-i $instrument -n $environment -q $queueID -u $user -p $password
 	exit
 
 else
