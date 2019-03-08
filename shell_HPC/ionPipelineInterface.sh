@@ -91,39 +91,57 @@ parse_options()
 		return 1
 }
 
-log()
+load_modules()
 {
- MESSAGE=$1
- TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
- SCRIPT=$( basename $0 )
- echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE "
+      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+}
+
+create_rundate()
+{
+  declare -A months
+  months=( ["Jan"]="01" ["Feb"]="02" ["Mar"]="03" ["Apr"]="04" ["May"]="05" ["Jun"]="06" ["Jul"]="07" ["Aug"]="08" ["Sep"]="09" ["Oct"]="10" ["Nov"]="11" ["Dec"]="12" )
+  if [ -f /home/${INSTRUMENT}/*"$RUNID"/InitLog.txt ]
+  then
+  	runDate=$(head -n 1 /home/${INSTRUMENT}/*"$RUNID"/InitLog.txt)
+  	year1=$(echo $runDate |cut -d ' ' -f 5)
+  	year=${year1%:}
+  	day=$(echo $runDate |cut -d ' ' -f 3)
+  	monthWord=$(echo $runDate |cut -d ' ' -f 2)
+  	month=${months["$monthWord"]}
+  	date=$year-$month-$day
+  	echo $date > ${HOME}${RUNNAME}/${SAMPLENAME}/runDate.txt
+  else
+  	log_info "Warning: InitLog.txt SAMPLE_FILE not found, run date will not be entered"
+  fi
 }
 
 
-create_dir()
+prep_neuro()
 {
-	n_dir=$1
-	if [ ! -d $n_dir ] ; then
-		mkdir $n_dir
-	fi
-	chmod 775 $n_dir
+  NEURO_EXCLUDED_DESIGN="/home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed"
+  /opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $PROTON_VCF -b $NEURO_EXCLUDED_DESIGN > ${HOME}${RUNNAME}/${SAMPLENAME}/${CALLERID}/TSVC_variants.filter.vcf
+
+
+  NEURO_EXCLUDED_AMPLICON="/home/doc/ref/neuralRef/excludedAmplicon.txt"
+  grep -v -f $NEURO_EXCLUDED_AMPLICON $PROTON_AMPLICON > ${HOME}${RUNNAME}/${SAMPLENAME}/${COVERAGEID}/amplicon.filter.txt
+
 }
 
-run_gene50()
+prep_gene50()
 {
-	NEURO_EXCLUDED_AMPLICON="/home/doc/ref/neuralRef/excludedAmplicon.txt"
-	NEURO_EXCLUDED_DESIGN="/home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed"
 
-	bash ${HOME_SHELLDIR}ionPipeline.sh -r $RUNID -s $SAMPLENAME -c $COVERAGEID -v $CALLERID \
-																		-i $INSTRUMENT  -e $NEURO_EXCLUDED_AMPLICON -a $NEURO_EXCLUDED_DESIGN \
-																		-n $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
+  ln -s $PROTON_VCF ${HOME}${RUNNAME}/${SAMPLENAME}/${CALLERID}/TSVC_variants.filter.vcf
+
+  ln -s $PROTON_AMPLICON ${HOME}${RUNNAME}/${SAMPLENAME}/${COVERAGEID}/amplicon.filter.txt
+
 }
 
-run_neuro()
+run_ionPipeline()
 {
-	bash ${HOME_SHELLDIR}ionPipeline.sh -r $RUNID -s $SAMPLENAME -c $COVERAGEID -v $CALLERID \
-																		-i $INSTRUMENT \
-																		-n $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
+
+  bash ${HOME_SHELLDIR}ionPipeline.sh -d "${HOME}${RUNNAME}/${SAMPLENAME}/" \
+        -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
+
 }
 
 # ##############################################################################
@@ -139,27 +157,24 @@ main()
         exit 0
     fi
 
-		################################################################################
+		############################################################################
 		# initialize variables
-		################################################################################
+		############################################################################
 
-		VARIANTFOLDER=$(ls -d /home/$INSTRUMENT/*$runID/plugin_out/"$CALLERID")
-		AMPLICONFOLDER=$(ls -d /home/$INSTRUMENT/*"$RUNID"/plugin_out/"$COVERAGEID")
-		RUNFOLDER=$(ls -d /home/$INSTRUMENT/*$RUNID)
+    load_modules
+
+		VARIANTFOLDER=$(ls -d /home/${INSTRUMENT}/*${RUNID}/plugin_out/"$CALLERID")
+    PROTON_VCF="$VARIANTFOLDER/${SAMPLENAME}/TSVC_variants.vcf"
+
+    AMPLICONFOLDER=$(ls -d /home/${INSTRUMENT}/*${RUNID}/plugin_out/"$COVERAGEID")
+    PROTON_AMPLICON=$(ls $AMPLICONFOLDER/${SAMPLENAME}/*.amplicon.cov.xls)
+
+    RUNFOLDER=$(ls -d /home/${INSTRUMENT}/*$RUNID)
 		RUNNAME=${RUNFOLDER##*/}
-		HOME="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/"
+
+    HOME="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/"
 		HOME_SHELLDIR="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 
-
-		log " Running ionPipeline Interface for :
-		assay : $ASSAY
-		instrument : $INSTRUMENT
-		runID : $RUNID
-		sampleName : $SAMPLENAME
-		coverageID : $COVERAGEID
-		callerID : $CALLERID
-		environment : $ENVIRONMENT
-		queueID : $QUEUEID "
 
 		create_dir ${HOME}$RUNNAME
 		create_dir ${HOME}${RUNNAME}/$SAMPLENAME
@@ -169,11 +184,26 @@ main()
 		exec >  >(tee -a ${HOME}${RUNNAME}/${SAMPLENAME}/process.log)
 		exec 2> >(tee -a ${HOME}${RUNNAME}/${SAMPLENAME}/process.log >&2)
 
-		if [ $assay == "neuro" ] ; then
-			run_gene50
-		elif [ $assay == "gene50" ] ; then
-			run_neuro
+    log_info " Running ionPipeline Interface for :
+		assay : $ASSAY
+		instrument : $INSTRUMENT
+		runID : $RUNID
+		sampleName : $SAMPLENAME
+		coverageID : $COVERAGEID
+		callerID : $CALLERID
+		environment : $ENVIRONMENT
+		queueID : $QUEUEID "
+
+
+    create_rundate
+
+		if [ $ASSAY == "neuro" ] ; then
+			prep_neuro
+		elif [ $ASSAY == "gene50" ] ; then
+			prep_gene50
 		fi
+
+    run_ionPipeline
 }
 
 

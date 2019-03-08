@@ -43,38 +43,39 @@ done
 	  shift $((OPTIND -1))
 
 ################################################################################
+# functions
+################################################################################
+load_modules()
+{
+	source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+}
+
+
+################################################################################
 # initialize Variables
 ################################################################################
+
+load_modules
+
 INSTRUMENT="proton"
 ASSAY="gene50"
 HOME="/home/pipelines/ngs_${ENVIRONMENT}/"
-HOME_RUNDIR="${HOME}run_files/"
-HOME_SHELLDIR="${HOME}shell/"
+HOME_RUN="${HOME}run_files/"
+HOME_SHELL="${HOME}shell/"
 DB="ngs_${ENVIRONMENT}"
-
-################################################################################
-# functions
-################################################################################
-log()
-{
- MESSAGE=$1
- TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
- SCRIPT=$( basename $0 )
- echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE "
-}
 
 
 ################################################################################
 # log and submit job
 ################################################################################
 
-log "Running from QSUB:
+log_info "Running from QSUB:
 ENVIRONMENT - $ENVIRONMENT
 INSTRUMENT - $INSTRUMENT
 ASSAY - Gene50
 FILE_ID - $FILE_ID
 SAMPLES -------------------------------------------------"
-cat ${HOME_RUNDIR}${INSTRUMENT}_${ASSAY}_${FILE_ID}.samples| while IFS=';' read -ra line; do
+cat ${HOME_RUN}${INSTRUMENT}_${ASSAY}_${FILE_ID}.samples| while IFS=';' read -ra line; do
 echo "
 RUN-ID : "${line[0]}"
 SAMPLE-ID : "${line[1]}"
@@ -85,11 +86,12 @@ CALLER-ID : "${line[4]}"
 done
 echo " -------------------------------------------------"
 
-cat ${HOME_RUNDIR}${INSTRUMENT}_${ASSAY}_${FILE_ID}.samples| while IFS=';' read -ra line; do
+
+cat ${HOME_RUN}${INSTRUMENT}_${ASSAY}_${FILE_ID}.samples| while IFS=';' read -ra line; do
 	QUEUEID="${line[0]}"
 	RUNID="${line[1]}"
 	SAMPLENAME="${line[2]}"
 	COVERAGEID="${line[3]}"
 	CALLERID="${line[4]}"
-	bash ${HOME_SHELLDIR}ionPipelineInterface.sh -r $RUNID -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -a $ASSAY -i $INSTRUMENT -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
+	bash ${HOME_SHELL}ionPipelineInterface.sh -r $RUNID -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -a $ASSAY -i $INSTRUMENT -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
 done

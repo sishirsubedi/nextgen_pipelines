@@ -39,9 +39,9 @@ parse_options()
 
 				case $opt in
 					h)
-							display_usuage
-							exit 1
-							;;
+					display_usuage
+					exit 1
+					;;
 	        z)
 					IMPORT=$OPTARG
 					;;
@@ -69,21 +69,9 @@ parse_options()
     return 1
 }
 
-log()
+load_modules()
 {
- MESSAGE=$1
- TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
- SCRIPT=$( basename $0 )
- echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE "
-}
-
-createSampleFiles()
-{
-  current_dt=$1
-	instrument=$2
-	assay=$3
-	touch  ${HOME_RUNDIR}${instrument}_${assay}_${current_dt}".samples"
-	chmod 775  ${HOME_RUNDIR}${instrument}_${assay}_${current_dt}".samples"
+      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
 }
 
 # ##############################################################################
@@ -102,7 +90,7 @@ check_db_queue()
 
   while read -r queueID runID  sampleName coverageID callerID assay instrument status; do
 
-			log "Submitting job to QSUB:
+			log_info "Submitting job to QSUB:
 			ENVIRONMENT - $ENVIRONMENT
 			INSTRUMENT - $instrument
 			ASSAY - $assay
@@ -118,12 +106,12 @@ check_db_queue()
 		 mysql  --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
 
 
-		 if [ -f ${HOME_RUNDIR}${instrument}_${assay}_${CURRENTDT}.samples ]; then
-		 		createSampleFiles "$CURRENTDT" "$instrument" "$assay"
+		 if [ -f ${HOME_RUN}${instrument}_${assay}_${CURRENTDT}.samples ]; then
+		 		create_file "$HOME_RUN"  "${instrument}_${assay}_${CURRENTDT}.samples"
 	   fi
 
 		 INSTRUMENT_ASSAY_PAIR+=("$instrument/$assay")
-		 echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUNDIR}${instrument}_${assay}_${CURRENTDT}.samples
+		 echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUN}${instrument}_${assay}_${CURRENTDT}.samples
 
 
   done < <(mysql --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$status_query_statement" -N)
@@ -135,21 +123,20 @@ check_db_queue()
 # ##############################################################################
 submit_job()
 {
-
 ### get unique instrument - assay pair
 unique_INSTRUMENT_ASSAY_PAIR=($(printf "%s\n" "${INSTRUMENT_ASSAY_PAIR[@]}" | sort -u))
 
-for ins_assay_pair in "${unique_INSTRUMENT_ASSAY_PAIR[@]}" ; do
+for inst_assay_pair in "${unique_INSTRUMENT_ASSAY_PAIR[@]}" ; do
 
-	current_instrument=$(echo $ins_assay_pair | cut -d "/" -f 1)
+	current_instrument=$(echo $inst_assay_pair | cut -d "/" -f 1)
 
-	current_assay=$(echo $ins_assay_pair | cut -d "/" -f 2)
+	current_assay=$(echo $inst_assay_pair | cut -d "/" -f 2)
 
-	qsub -F "-c$CURRENTDT -e$ENVIRONMENT -u$USER -p$PASSWORD" ${HOME_SHELLDIR}submitJob_${current_instrument}_${current_assay}.sh
+  #qsub -F "-c$CURRENTDT -e$ENVIRONMENT -u$USER -p$PASSWORD" ${HOME_SHELL}submitJob_${current_instrument}_${current_assay}.sh
 
 done
 
-log "Completed cronjob for $0."
+log_info "Completed cronjob for $0."
 
 }
 
@@ -170,17 +157,23 @@ main()
 		# initialize Variables
 		# ##########################################################################
 
+    load_modules
+
 		HOME="/home/pipelines/ngs_${ENVIRONMENT}/"
-		HOME_RUNDIR="${HOME}run_files/"
-		HOME_SHELLDIR="${HOME}shell/"
+		HOME_RUN="${HOME}run_files/"
+		HOME_SHELL="${HOME}shell/"
 		DB="ngs_${ENVIRONMENT}"
 		DATE_=`date '+%Y-%m-%d %H'`
 		CURRENTDT=$(echo $DATE_ | sed -e 's/ /_/g' -e 's/:/_/g' -e 's/-/_/g' )
 		INSTRUMENT_ASSAY_PAIR=()
 
-    check_db_queue 2>> /dev/stderr
+    # ##########################################################################
+    # workflows
+    # ##########################################################################
 
-		submit_job 2>> /dev/stderr
+    check_db_queue
+
+		submit_job
 }
 
 
