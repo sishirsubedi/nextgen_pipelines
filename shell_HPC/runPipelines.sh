@@ -106,35 +106,56 @@ check_db_queue()
 		 mysql  --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
 
 
-		 if [ -f ${HOME_RUN}${instrument}_${assay}_${CURRENTDT}.samples ]; then
-		 		create_file "$HOME_RUN"  "${instrument}_${assay}_${CURRENTDT}.samples"
+		 if [ ! -f ${HOME_RUN}${CURRENTDT}_Queued.samples ]; then
+		 		create_file "$HOME_RUN"  "${CURRENTDT}_Queued.samples"
+        echo "##queueID;runID;sampleName;coverageID;callerID;assay;instrument;ENVIRONMENT##RUNDATE-$CURRENTDT"  >> ${HOME_RUN}${CURRENTDT}_Queued.samples
 	   fi
-
-		 INSTRUMENT_ASSAY_PAIR+=("$instrument/$assay")
-		 echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUN}${instrument}_${assay}_${CURRENTDT}.samples
+		 echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUN}${CURRENTDT}_Queued.samples
 
 
   done < <(mysql --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$status_query_statement" -N)
 
 }
 
+
 # ##############################################################################
 # workflow:submit job
 # ##############################################################################
 submit_job()
 {
-### get unique instrument - assay pair
-unique_INSTRUMENT_ASSAY_PAIR=($(printf "%s\n" "${INSTRUMENT_ASSAY_PAIR[@]}" | sort -u))
 
-for inst_assay_pair in "${unique_INSTRUMENT_ASSAY_PAIR[@]}" ; do
+  tail -n +2 ${HOME_RUN}${CURRENTDT}_Queued.samples | while IFS=';' read -ra line; do
 
-	current_instrument=$(echo $inst_assay_pair | cut -d "/" -f 1)
+    queueID="${line[0]}"
+  	runID="${line[1]}"
+  	sampleName="${line[2]}"
+  	coverageID="${line[3]}"
+  	callerID="${line[4]}"
+    assay="${line[5]}"
+    instrument="${line[6]}"
 
-	current_assay=$(echo $inst_assay_pair | cut -d "/" -f 2)
 
-  #qsub -F "-c$CURRENTDT -e$ENVIRONMENT -u$USER -p$PASSWORD" ${HOME_SHELL}submitJob_${current_instrument}_${current_assay}.sh
+    home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/"
 
-done
+
+    if [ "$instrument" == "proton" ] ; then
+
+      runfolder=$(ls -d /home/${instrument}/*$runID)
+      runname=${runfolder##*/}
+
+      create_dir ${home_analysis_instrument}$runname
+      create_dir ${home_analysis_instrument}${runname}/$sampleName
+
+      working_dir="${home_analysis_instrument}${runname}/${sampleName}/"
+
+      /opt/torque/bin/qsub -d ${working_dir}  \
+           -F "-r$runID -s$sampleName -c$coverageID -v$callerID -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+           ${HOME_SHELL}ionPipelineInterface.sh
+
+    fi
+
+  done
+
 
 log_info "Completed cronjob for $0."
 
@@ -149,8 +170,8 @@ main()
 
     if [ $? -eq 0 ]
     then
-			  echo "Error in previous step. Aborting $0"
-        exit 0
+			  log_error "Import flag non-zero. Aborting $0"
+        exit 1
     fi
 
 		# ##########################################################################
@@ -162,16 +183,20 @@ main()
 		HOME="/home/pipelines/ngs_${ENVIRONMENT}/"
 		HOME_RUN="${HOME}run_files/"
 		HOME_SHELL="${HOME}shell/"
+    HOME_ANALYSIS="/home/environments/ngs_${ENVIRONMENT}/"
 		DB="ngs_${ENVIRONMENT}"
-		DATE_=`date '+%Y-%m-%d %H'`
-		CURRENTDT=$(echo $DATE_ | sed -e 's/ /_/g' -e 's/:/_/g' -e 's/-/_/g' )
-		INSTRUMENT_ASSAY_PAIR=()
+		CURRENTDT=`date '+%Y_%m_%d_%H_%M_%S'`
+
 
     # ##########################################################################
     # workflows
     # ##########################################################################
 
     check_db_queue
+
+    if [ ! -f  ${HOME_RUN}${CURRENTDT}_Queued.samples  ] ; then
+      exit 0
+    fi
 
 		submit_job
 }

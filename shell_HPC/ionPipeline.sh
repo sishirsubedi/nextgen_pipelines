@@ -106,15 +106,12 @@ run_vep()
 
   start_vep "${HOME}${CALLERID}/TSVC_variants.filter.split.vcf"  "${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf"
 
-	update_status "$QUEUEID" "VEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-
   log_info "Completed VEP"
 }
 
 parse_vep()
 {
   log_info "Parse VEP"
-
 
 	python ${HOME_PYTHON}parseVEP.py \
 					parseIonNewVarView \
@@ -151,9 +148,7 @@ update_db()
 
   log_info "Updating Database"
 
-	update_status "$QUEUEID" "UpdateDB" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-
-  bash ${HOME_SHELL}runDBupdate.sh -q $QUEUEID -e $ENVIRONMENT -u $USER -p $PASSWORD
+  bash ${HOME_SHELL}runDBUpdate.sh -d $HOME -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -q $QUEUEID -e $ENVIRONMENT -u $USER -p $PASSWORD
 
 }
 # ##############################################################################
@@ -187,17 +182,22 @@ main()
 		environment : $ENVIRONMENT
 		queueID : $QUEUEID "
 
-		split_protonVCF
+		# split_protonVCF
+    #
+    # update_status "$QUEUEID" "RunningVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+		# run_vep
+    #
+    # update_status "$QUEUEID" "CompletedVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+    #
+		# parse_vep
+    #
+		# filter_vep
+    #
+		# filter_amplicon
+    #
+    # update_status "$QUEUEID" "UpdatingDatabase" "$ENVIRONMENT" "$USER"  "$PASSWORD"
 
-		run_vep
-
-		parse_vep
-
-		filter_vep
-
-		filter_amplicon
-
-		# update_db
+		update_db
 
 }
 

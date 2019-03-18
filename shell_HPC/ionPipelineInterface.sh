@@ -4,11 +4,18 @@
 # Molecular Diagnostic
 #
 #Description:
-#This script checks parameters, creates run and sample directory
-# and calls pipeline script.
+#This script checks samples queued in instrument/assay specific txt file
+# and calls appropriate interface script.
+#Allocates appropriate PBS parameters.
 ##############################################################################
 
 #!/bin/bash
+#PBS -l nodes=1
+#PBS -l walltime=2:00:00
+#PBS -q default
+#PBS -o ${PBS_JOBNAME}.out
+#PBS -e ${PBS_JOBNAME}.err
+#PBS -k eo
 
 # ##############################################################################
 # # functions
@@ -96,6 +103,7 @@ load_modules()
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
 }
 
+
 create_rundate()
 {
   declare -A months
@@ -139,6 +147,8 @@ prep_gene50()
 run_ionPipeline()
 {
 
+  update_status "$QUEUEID" "Started" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+
   bash ${HOME_SHELLDIR}ionPipeline.sh -d "${HOME}${RUNNAME}/${SAMPLENAME}/" \
         -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
 
@@ -176,15 +186,15 @@ main()
 		HOME_SHELLDIR="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 
 
-		create_dir ${HOME}$RUNNAME
-		create_dir ${HOME}${RUNNAME}/$SAMPLENAME
 		create_dir ${HOME}${RUNNAME}/${SAMPLENAME}/$CALLERID
 		create_dir ${HOME}${RUNNAME}/${SAMPLENAME}/$COVERAGEID
 
 		exec >  >(tee -a ${HOME}${RUNNAME}/${SAMPLENAME}/process.log)
 		exec 2> >(tee -a ${HOME}${RUNNAME}/${SAMPLENAME}/process.log >&2)
 
-    log_info " Running ionPipeline Interface for :
+    show_pbsinfo
+
+    log_info " Running ionPipeline Interface BY qsub for :
 		assay : $ASSAY
 		instrument : $INSTRUMENT
 		runID : $RUNID
@@ -193,6 +203,8 @@ main()
 		callerID : $CALLERID
 		environment : $ENVIRONMENT
 		queueID : $QUEUEID "
+
+
 
 
     create_rundate
@@ -210,5 +222,6 @@ main()
 # ##############################################################################
 # run main
 # ##############################################################################
+
 
 main $*
