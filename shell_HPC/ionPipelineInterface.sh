@@ -127,10 +127,13 @@ create_rundate()
 prep_neuro()
 {
   NEURO_EXCLUDED_DESIGN="/home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed"
+
+  #bedtools -u flag to write original A entry once if any overlaps found in B
   /opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $PROTON_VCF -b $NEURO_EXCLUDED_DESIGN > ${HOME}${RUNNAME}/${SAMPLENAME}/${CALLERID}/TSVC_variants.filter.vcf
 
 
   NEURO_EXCLUDED_AMPLICON="/home/doc/ref/neuralRef/excludedAmplicon.txt"
+  # -v means "invert the match" in grep, in other words, return all non matching lines.
   grep -v -f $NEURO_EXCLUDED_AMPLICON $PROTON_AMPLICON > ${HOME}${RUNNAME}/${SAMPLENAME}/${COVERAGEID}/amplicon.filter.txt
 
 }

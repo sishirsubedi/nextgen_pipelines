@@ -182,20 +182,20 @@ main()
 		environment : $ENVIRONMENT
 		queueID : $QUEUEID "
 
-		# split_protonVCF
-    #
-    # update_status "$QUEUEID" "RunningVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-		# run_vep
-    #
-    # update_status "$QUEUEID" "CompletedVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-    #
-		# parse_vep
-    #
-		# filter_vep
-    #
-		# filter_amplicon
-    #
-    # update_status "$QUEUEID" "UpdatingDatabase" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+		split_protonVCF
+
+    update_status "$QUEUEID" "RunningVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+		run_vep
+
+    update_status "$QUEUEID" "CompletedVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+
+		parse_vep
+
+		filter_vep
+
+		filter_amplicon
+
+    update_status "$QUEUEID" "UpdatingDatabase" "$ENVIRONMENT" "$USER"  "$PASSWORD"
 
 		update_db
 

@@ -146,7 +146,7 @@ load_amplicons()
 
 log_run()
 {
-/opt/python3/bin/python3 ${HOME_PYTHON}logPipelineRun.py -q "$QUEUEID" -u "$USER" -p "$PASSWORD" -d "$ENVIRONMENT" -b "$DB_HOST"
+/opt/python3/bin/python3 ${HOME_PYTHON}logPipelineRun.py -q "$QUEUEID" -u "$USER" -p "$PASSWORD" -d "$DB" -b "$DB_HOST"
 
 }
 
