@@ -103,35 +103,62 @@ get_IDs()
 
   done < <(mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$getids_statement" -N)
 
+  log_info " get_IDS(): sampleid is - $SAMPLEID, runid is - $RUNID, instrument is - $INSTRUMENT"
+
 }
 
 load_variants()
 {
+    variantfile=""
+
     if [ "$INSTRUMENT" == "proton" ] ; then
 
        variantfile=$(ls ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter2.txt)
 
-  		 if [ ! -f $variantfile ]; then
-  		 		  update_status "$QUEUEID" "ERROR:VariantFile" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-            log_error "Analsysis variant file not found !"
-  					exit 1
-  		 fi
+   elif [ "$INSTRUMENT" == "miseq" ] ; then
 
-  		 variantstatement="load data local infile '$variantfile' into table sampleVariants (gene, exon, chr, pos, ref, alt, impact, type, quality, altFreq, readDepth, altReadDepth, consequence, Sift, PolyPhen, HGVSc, HGVSp, dbSNPID, pubmed) set sampleID = '$SAMPLEID'"
+       variantfile=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf)
+   fi
 
-       mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$variantstatement"
-    fi
+   if [ ! -f $variantfile ]; then
+     update_status "$QUEUEID" "ERROR:VariantFile" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+     log_error "Analsysis variant file not found !"
+  	 exit 1
+   fi
+
+   variantstatement="load data local infile '$variantfile' into table sampleVariants (gene, exon, chr, pos, ref, alt, impact, type, quality, altFreq, readDepth, altReadDepth, consequence, Sift, PolyPhen, HGVSc, HGVSp, dbSNPID, pubmed) set sampleID = '$SAMPLEID'"
+
+   mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$variantstatement"
+
 }
 
 load_amplicons()
 {
-    /opt/python3/bin/python3 ${HOME_PYTHON}loadSampleAmplicons.py \
-    -i ${HOME}${COVERAGEID}/amplicon.filter.txt \
-    -o ${HOME}${COVERAGEID}/amplicon.filter.v2.txt \
-    -s $SAMPLEID \
-    -n $INSTRUMENT
 
-    ampliconfile=$(ls ${HOME}${COVERAGEID}/amplicon.filter.v2.txt)
+    ampliconfile=""
+
+    if [ "$INSTRUMENT" == "proton" ] ; then
+
+      /opt/python3/bin/python3 ${HOME_PYTHON}loadSampleAmplicons.py \
+      -i ${HOME}${COVERAGEID}/amplicon.filter.txt \
+      -o ${HOME}${COVERAGEID}/amplicon.filter.filter2.txt \
+      -s $SAMPLEID \
+      -n $INSTRUMENT
+
+      ampliconfile=$(ls ${HOME}${COVERAGEID}/amplicon.filter.filter2.txt)
+
+    elif [ "$INSTRUMENT" == "miseq" ] ; then
+
+      /opt/python3/bin/python3 ${HOME_PYTHON}loadSampleAmplicons.py \
+      -i ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.filter2.txt \
+      -o ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.filter2.filter3.txt\
+      -s $SAMPLEID \
+      -n $INSTRUMENT
+
+      ampliconfile=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.filter2.filter3.txt)
+
+    fi
+
 
   	if [ ! -f $ampliconfile ]; then
            update_status "$QUEUEID" "ERROR:AmpliconFile" "$ENVIRONMENT" "$USER"  "$PASSWORD"

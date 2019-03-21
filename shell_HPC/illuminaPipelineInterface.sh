@@ -30,8 +30,6 @@ cat <<EOF >> /dev/stderr
  OPTIONS:
  r - runID
  s - sampleName
- c - coverageID
- v - callerID
  a - assay
  i - instrument
  e - environment
@@ -46,7 +44,7 @@ parse_options()
 {
     IMPORT=0
 
-		while getopts "hz:r:s:c:v:a:i:e:q:u:p:" opt ; do
+		while getopts "hz:r:s:a:i:e:q:u:p:" opt ; do
 				case $opt in
 					h)
 						 display_usuage
@@ -60,12 +58,6 @@ parse_options()
 						;;
 					s)
 					  SAMPLENAME=$OPTARG
-						;;
-					c)
-					  COVERAGEID=$OPTARG
-					  ;;
-					v)
-						CALLERID=$OPTARG
 						;;
 					a)
 						ASSAY=$OPTARG
@@ -106,55 +98,51 @@ load_modules()
 
 create_rundate()
 {
-  declare -A months
-  months=( ["Jan"]="01" ["Feb"]="02" ["Mar"]="03" ["Apr"]="04" ["May"]="05" ["Jun"]="06" ["Jul"]="07" ["Aug"]="08" ["Sep"]="09" ["Oct"]="10" ["Nov"]="11" ["Dec"]="12" )
-  if [ -f /home/${INSTRUMENT}/*"$RUNID"/InitLog.txt ]
-  then
-  	runDate=$(head -n 1 /home/${INSTRUMENT}/*"$RUNID"/InitLog.txt)
-  	year1=$(echo $runDate |cut -d ' ' -f 5)
-  	year=${year1%:}
-  	day=$(echo $runDate |cut -d ' ' -f 3)
-  	monthWord=$(echo $runDate |cut -d ' ' -f 2)
-  	month=${months["$monthWord"]}
-  	date=$year-$month-$day
-  	echo $date > ${HOME}runDate.txt
-  else
-  	log_info "Warning: InitLog.txt SAMPLE_FILE not found, run date will not be entered"
-  fi
+	##get runDate information##
+	dateString=${RUNNAME%%_*}
+  echo $dateString
+	year=20${dateString:0:2}
+	month=${dateString:2:2}
+	day=${dateString:4:2}
+	dateString=$year-$month-$day
+
+	echo $dateString > ${HOME}runDate.txt
+
+}
+
+generate_ampliconFile(){
+
+  HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
+
+  /opt/samtools-1.4/samtools-1.4/samtools bedcov  $HEME_EXCLUDED_DESIGN  ${HOME}variantCaller/${SAMPLENAME}.sort.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > ${HOME}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth
+
+  AMPLICON_FILE=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth)
+
 }
 
 
-prep_neuro()
+prep_heme()
 {
-  NEURO_EXCLUDED_DESIGN="/home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed"
 
+
+  HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
   #bedtools -u flag to write original A entry once if any overlaps found in B
-  /opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $PROTON_VCF -b $NEURO_EXCLUDED_DESIGN > ${HOME}${CALLERID}/TSVC_variants.filter.vcf
+  /opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $VARIANT_VCF -b $HEME_EXCLUDED_DESIGN > ${HOME}variantAnalysis/${SAMPLENAME}.filter.vcf
 
 
-  NEURO_EXCLUDED_AMPLICON="/home/doc/ref/neuralRef/excludedAmplicon.txt"
+  HEME_EXCLUDED_AMPLICON="/home/doc/ref/Heme/excludedAmplicons.txt"
   # -v means "invert the match" in grep, in other words, return all non matching lines.
-  grep -v -f $NEURO_EXCLUDED_AMPLICON $PROTON_AMPLICON > ${HOME}${COVERAGEID}/amplicon.filter.txt
+  grep -v -f $HEME_EXCLUDED_AMPLICON $AMPLICON_FILE > ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.txt
+
 
 }
 
-prep_gene50()
+
+run_illuminaPipeline()
 {
-
-  ln -s $PROTON_VCF ${HOME}${CALLERID}/TSVC_variants.filter.vcf
-
-  ln -s $PROTON_AMPLICON ${HOME}${COVERAGEID}/amplicon.filter.txt
-
+  bash ${HOME_SHELLDIR}illuminaPipeline.sh -d $HOME \
+        -s $SAMPLENAME -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
 }
-
-run_ionPipeline()
-{
-
-  bash ${HOME_SHELLDIR}ionPipeline.sh -d $HOME \
-        -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
-
-}
-
 # ##############################################################################
 # main
 # ##############################################################################
@@ -174,51 +162,75 @@ main()
 
     load_modules
 
-		VARIANTFOLDER=$(ls -d /home/${INSTRUMENT}/*${RUNID}/plugin_out/"$CALLERID")
-    PROTON_VCF="$VARIANTFOLDER/${SAMPLENAME}/TSVC_variants.vcf"
 
-    AMPLICONFOLDER=$(ls -d /home/${INSTRUMENT}/*${RUNID}/plugin_out/"$COVERAGEID")
-    PROTON_AMPLICON=$(ls $AMPLICONFOLDER/${SAMPLENAME}/*.amplicon.cov.xls)
-
-    RUNFOLDER=$(ls -d /home/${INSTRUMENT}/*$RUNID)
-		RUNNAME=${RUNFOLDER##*/}
+    RUNFOLDER=$(ls -d /home/$INSTRUMENT/*_"$RUNID"_*)
+    RUNNAME=${RUNFOLDER##/home/$INSTRUMENT/}
 
     HOME="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${RUNNAME}/${SAMPLENAME}/"
 		HOME_SHELLDIR="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 
+    ##Aligning fastq files
+    echo "Aligning fastq files"
+    FASTQ_R1=$RUNFOLDER/out1/"$SAMPLENAME"*_R1_001.fastq.gz
+    FASTQ_R2=${FASTQ_R1/_R1_/_R2_}      #replace "R1" with "R2"
+    echo $FASTQ_R1
+    echo $FASTQ_R2
 
-		create_dir ${HOME}$CALLERID
-		create_dir ${HOME}$COVERAGEID
+    VARIANT_VCF=""
+    AMPLICON_FILE=""
+
+		create_dir ${HOME}variantCaller
+		create_dir ${HOME}variantAnalysis
 
 		exec >  >(tee -a ${HOME}process.log)
 		exec 2> >(tee -a ${HOME}process.log >&2)
 
     show_pbsinfo
 
-    log_info " Running ionPipeline Interface BY qsub for :
+    log_info " Running illumina Pipeline Interface BY qsub for :
 		assay : $ASSAY
 		instrument : $INSTRUMENT
 		runID : $RUNID
 		sampleName : $SAMPLENAME
-		coverageID : $COVERAGEID
-		callerID : $CALLERID
 		environment : $ENVIRONMENT
 		queueID : $QUEUEID "
 
-
-
-
     create_rundate
 
-		if [ $ASSAY == "neuro" ] ; then
-			prep_neuro
-		elif [ $ASSAY == "gene50" ] ; then
-			prep_gene50
-		fi
+    if [ $INSTRUMENT == "miseq" ] ; then
 
-    update_status "$QUEUEID" "Started" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+      VARIANT_VCF=$(ls /home/${INSTRUMENT}/*_${RUNID}_*/Data/Intensities/BaseCalls/Alignment/${SAMPLENAME}_*.vcf)
+      AMPLICON_FILE=$(ls /home/${INSTRUMENT}/*_${RUNID}_*/Data/Intensities/BaseCalls/Alignment/AmpliconCoverage_M1.tsv)
 
-    run_ionPipeline
+      echo $VARIANT_VCF
+      echo $AMPLICON_FILE
+
+    if [ $INSTRUMENT == "nextseq" ] ; then
+
+	     bash ${HOME_SHELLDIR}VarScanPipelinePE.sh -p $FASTQ_R1 -q $FASTQ_R2 -o ${HOME}variantCaller -e $ENVIRONMENT
+
+
+       VARIANT_VCF=$(ls ${HOME}variantCaller/${SAMPLENAME}.comb.vcf)
+       generate_ampliconFile
+
+       echo $VARIANT_VCF
+       echo $AMPLICON_FILE
+
+       prep_heme
+
+
+    fi
+
+
+    prep_heme
+
+
+    #update_status "$QUEUEID" "Started" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+
+    run_illuminaPipeline
+
+
+
 }
 
 

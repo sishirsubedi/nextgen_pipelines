@@ -72,6 +72,7 @@ parse_options()
 load_modules()
 {
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/runBcl2fastqPipeline.sh
 }
 
 # ##############################################################################
@@ -140,24 +141,86 @@ submit_job()
 
     if [ "$instrument" == "proton" ] ; then
 
-      runfolder=$(ls -d /home/${instrument}/*$runID)
-      runname=${runfolder##*/}
+      runFolder=$(ls -d /home/${instrument}/*$runID)
+      runName=${runFolder##*/}
 
-      create_dir ${home_analysis_instrument}$runname
-      create_dir ${home_analysis_instrument}${runname}/$sampleName
+      create_dir ${home_analysis_instrument}$runName
+      create_dir ${home_analysis_instrument}${runName}/$sampleName
 
-      working_dir="${home_analysis_instrument}${runname}/${sampleName}/"
+      working_dir="${home_analysis_instrument}${runName}/${sampleName}/"
 
       /opt/torque/bin/qsub -d ${working_dir}  \
            -F "-r$runID -s$sampleName -c$coverageID -v$callerID -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
            ${HOME_SHELL}ionPipelineInterface.sh
 
+    elif [ "$instrument" == "nextseq" ] ; then
+      NEXTSEQ_SAMPLES+=("$runID/$queueID/$instrument")
     fi
 
   done
 
+  for idpair in "${NEXTSEQ_SAMPLES_IDRUN[@]}" ;do
 
-log_info "Completed cronjob for $0."
+    runID=$(echo $idpair | cut -d "/" -f 1)
+    queueID=$(echo $idpair | cut -d "/" -f 2)
+    instrument=$(echo $idpair | cut -d "/" -f 3)
+
+    fastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
+
+    if [ $fastqStatus == "0" ] ; then
+
+      lockdir=${HOME_RUN}nextseq.lock
+
+      ## mkdir is atomic, file or file variable is not
+      if mkdir "$lockdir" ; then
+
+        
+
+        runBcl2fastqPipeline $USER   $PASSWORD  $DB  $DB_HOST  $runID
+
+			  rm -rf "$lockdir"
+
+      else
+
+        for idpair_re in "${NEXTSEQ_SAMPLES_IDRUN[@]}"; do
+
+				      runID_re=$(echo $idpair_re | cut -d "/" -f 1)
+				      queueID_re=$(echo $idpair_re | cut -d "/" -f 2)
+
+				      if [ $runID_re == $runID ]; then
+
+					           updatestatement="UPDATE pipelineQueue SET pipelineQueue.status=0 WHERE queueID = $queueID_re;"
+					           mysql --user="$user" --password="$password" --database="$environment" --execute="$updatestatement"
+
+					           #updateStatus "$queueID_re" "bcl2fastq_wait" "$environment" "$user"  "$password"
+				      fi
+
+			  done
+
+    else
+
+		fi
+
+
+    else
+
+      runFolder=$(ls -d /home/$instrument/*_"$runID"_*)
+      runName=${runFolder##/home/$instrument/}
+
+      create_dir ${home_analysis_instrument}$runName
+      create_dir ${home_analysis_instrument}${runName}/$sampleName
+
+      working_dir="${home_analysis_instrument}${runName}/${sampleName}/"
+
+
+      /opt/torque/bin/qsub -d ${working_dir}  \
+           -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+           ${HOME_SHELL}illuminaPipelineInterface.sh
+
+    fi
+
+
+  done
 
 }
 
@@ -185,8 +248,9 @@ main()
 		HOME_SHELL="${HOME}shell/"
     HOME_ANALYSIS="/home/environments/ngs_${ENVIRONMENT}/"
 		DB="ngs_${ENVIRONMENT}"
+    DB_HOST="hhplabngsp01"
 		CURRENTDT=`date '+%Y_%m_%d_%H_%M_%S'`
-
+    NEXTSEQ_SAMPLES=()
 
     # ##########################################################################
     # workflows
@@ -199,6 +263,8 @@ main()
     fi
 
 		submit_job
+
+    log_info "Completed cronjob for $0."
 }
 
 
@@ -207,3 +273,6 @@ main()
 # ##############################################################################
 
 main $*
+
+
+    else

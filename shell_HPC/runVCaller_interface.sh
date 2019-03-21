@@ -54,10 +54,10 @@ for v_caller in $VCS;do
 		bash ${DIR_SCRIPT}shell/runVCaller_varscan.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
 	elif [[ "$v_caller" = "strelka" ]]; then
 		echo "Starting : " $v_caller
-		bash ${DIR_SCRIPT}shell/runVCaller_strelka.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
+		#bash ${DIR_SCRIPT}shell/runVCaller_strelka.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
 	elif [[ "$v_caller" = "mutect" ]]; then
 		echo "Starting : " $v_caller
-		bash ${DIR_SCRIPT}shell/runVCaller_mutect.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
+		#bash ${DIR_SCRIPT}shell/runVCaller_mutect.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
   fi
 done
 
