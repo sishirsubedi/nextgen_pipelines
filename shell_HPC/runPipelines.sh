@@ -102,16 +102,28 @@ check_db_queue()
 			COVERAGE - $coverageID
 			CALLER - $callerID"
 
-	   ####update sampleAnalysisQueue table and set status of this queue to 1 i.e started processing
+	   ###update sampleAnalysisQueue table and set status of this queue to 1 i.e started processing
 	   updatestatement="update pipelineQueue SET status=1 where queueID = $queueID;"
 		 mysql  --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
 
+     if [ "$instrument" == "proton" ] ; then
 
-		 if [ ! -f ${HOME_RUN}${CURRENTDT}_Queued.samples ]; then
-		 		create_file "$HOME_RUN"  "${CURRENTDT}_Queued.samples"
-        echo "##queueID;runID;sampleName;coverageID;callerID;assay;instrument;ENVIRONMENT##RUNDATE-$CURRENTDT"  >> ${HOME_RUN}${CURRENTDT}_Queued.samples
-	   fi
-		 echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUN}${CURRENTDT}_Queued.samples
+       if [ ! -f ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples ]; then
+         create_file "$HOME_RUN"  "${CURRENTDT}_ProtonQueued.samples"
+         echo "##queueID;runID;sampleName;coverageID;callerID;assay;instrument;ENVIRONMENT##RUNDATE-$CURRENTDT"  >> ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples
+       fi
+       echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples
+
+     elif [ "$instrument" == "nextseq" ] ;then
+
+       if [ ! -f ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples ]; then
+         create_file "$HOME_RUN"  "${CURRENTDT}_IlluminaQueued.samples"
+         echo "##queueID;runID;sampleName;coverageID;callerID;assay;instrument;ENVIRONMENT##RUNDATE-$CURRENTDT"  >> ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples
+       fi
+
+       echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples
+
+     fi
 
 
   done < <(mysql --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$status_query_statement" -N)
@@ -122,10 +134,17 @@ check_db_queue()
 # ##############################################################################
 # workflow:submit job
 # ##############################################################################
-submit_job()
+submit_jobs_proton()
 {
 
-  tail -n +2 ${HOME_RUN}${CURRENTDT}_Queued.samples | while IFS=';' read -ra line; do
+  if [ ! -f  ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples  ] ; then
+    log_info "No samples queued on proton."
+    return 1
+  fi
+
+  log_info "Samples queued on proton."
+
+  tail -n +2 ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples | while IFS=';' read -ra line; do
 
     queueID="${line[0]}"
   	runID="${line[1]}"
@@ -136,93 +155,133 @@ submit_job()
     instrument="${line[6]}"
 
 
+    echo $queueID $runID $instrument $assay $sampleName
+
     home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/"
 
 
-    if [ "$instrument" == "proton" ] ; then
+    runFolder=$(ls -d /home/${instrument}/*$runID)
+    runName=${runFolder##*/}
 
-      runFolder=$(ls -d /home/${instrument}/*$runID)
-      runName=${runFolder##*/}
+    create_dir ${home_analysis_instrument}$runName
+    create_dir ${home_analysis_instrument}${runName}/$sampleName
 
-      create_dir ${home_analysis_instrument}$runName
-      create_dir ${home_analysis_instrument}${runName}/$sampleName
+    working_dir="${home_analysis_instrument}${runName}/${sampleName}/"
 
-      working_dir="${home_analysis_instrument}${runName}/${sampleName}/"
-
-      /opt/torque/bin/qsub -d ${working_dir}  \
+    /opt/torque/bin/qsub -d ${working_dir}  \
            -F "-r$runID -s$sampleName -c$coverageID -v$callerID -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
-           ${HOME_SHELL}ionPipelineInterface.sh
-
-    elif [ "$instrument" == "nextseq" ] ; then
-      NEXTSEQ_SAMPLES+=("$runID/$queueID/$instrument")
-    fi
+           ${HOME_SHELL}protonPipelineInterface.sh
 
   done
+}
 
-  for idpair in "${NEXTSEQ_SAMPLES_IDRUN[@]}" ;do
+submit_sample_illumina()
+{
 
-    runID=$(echo $idpair | cut -d "/" -f 1)
-    queueID=$(echo $idpair | cut -d "/" -f 2)
-    instrument=$(echo $idpair | cut -d "/" -f 3)
+  queueID=$1
+  runID=$2
+  instrument=$3
+  assay=$4
+  sampleName=$5
 
+  runFolder=$(ls -d /home/$instrument/*_"$runID"_*)
+  runName=${runFolder##/home/$instrument/}
+
+  home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/"
+
+  create_dir ${home_analysis_instrument}$runName
+  create_dir ${home_analysis_instrument}${runName}/$sampleName
+
+  working_dir="${home_analysis_instrument}${runName}/${sampleName}/"
+
+  log_info "Submitting illuminaPipelineInterface.sh"
+  /opt/torque/bin/qsub -d ${working_dir}  \
+       -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+       ${HOME_SHELL}illuminaPipelineInterface.sh
+}
+
+submit_jobs_illumina()
+{
+
+  if [ ! -f  ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples  ] ; then
+    log_info "No samples queued on illumina."
+    return 1
+  fi
+
+  log_info "Samples queued on illumina."
+
+  tail -n +2 ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples | while IFS=';' read -ra line; do
+
+    queueID="${line[0]}"
+  	runID="${line[1]}"
+  	sampleName="${line[2]}"
+  	coverageID="${line[3]}"
+  	callerID="${line[4]}"
+    assay="${line[5]}"
+    instrument="${line[6]}"
+
+    echo $queueID   $runID $instrument $assay $sampleName
     fastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
 
     if [ $fastqStatus == "0" ] ; then
 
-      lockdir=${HOME_RUN}nextseq.lock
+      lockdir=${HOME_RUN}nextseq_${runID}.lock
 
       ## mkdir is atomic, file or file variable is not
       if mkdir "$lockdir" ; then
 
-        
+        log_info "Acquired lock for $lockdir"
+        log_info "bcl2fastq_running_now"
+        #updateStatus "$queueID_re" "bcl2fastq_running_now" "$environment" "$user"  "$password"
 
-        runBcl2fastqPipeline $USER   $PASSWORD  $DB  $DB_HOST  $runID
+        run_bcl2fastq $USER  $PASSWORD  $DB  $DB_HOST  $runID $ENVIRONMENT
 
-			  rm -rf "$lockdir"
+        ### sleep for an hour and keep checking database if bcl2fastq is completed
+        checkfastqStatus="0"
+        while [ $checkfastqStatus == "0" ]; do
+
+            sleep 1h
+
+            checkfastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
+
+            log_info "checking bcl2fastq status -- $checkfastqStatus"
+
+        done
+
+
+        #updateStatus "$queueID_re" "bcl2fastq_completed_now" "$environment" "$user"  "$password"
+        submit_sample_illumina $queueID  $runID $instrument $assay $sampleName
+
+        rm -rf "$lockdir"
 
       else
 
-        for idpair_re in "${NEXTSEQ_SAMPLES_IDRUN[@]}"; do
+        tail -n +2 ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples | while IFS=';' read -ra line; do
 
-				      runID_re=$(echo $idpair_re | cut -d "/" -f 1)
-				      queueID_re=$(echo $idpair_re | cut -d "/" -f 2)
+          queueID_re="${line[0]}"
+          runID_re="${line[1]}"
 
-				      if [ $runID_re == $runID ]; then
+    		      if [ $runID_re == $runID ]; then
 
-					           updatestatement="UPDATE pipelineQueue SET pipelineQueue.status=0 WHERE queueID = $queueID_re;"
-					           mysql --user="$user" --password="$password" --database="$environment" --execute="$updatestatement"
+    			           updatestatement="UPDATE pipelineQueue SET pipelineQueue.status=0 WHERE queueID = $queueID_re;"
+    			           mysql --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
 
-					           #updateStatus "$queueID_re" "bcl2fastq_wait" "$environment" "$user"  "$password"
-				      fi
+    			           #updateStatus "$queueID_re" "bcl2fastq_wait" "$environment" "$user"  "$password"
+    		      fi
 
-			  done
-
+    	  done
+      fi
     else
 
-		fi
-
-
-    else
-
-      runFolder=$(ls -d /home/$instrument/*_"$runID"_*)
-      runName=${runFolder##/home/$instrument/}
-
-      create_dir ${home_analysis_instrument}$runName
-      create_dir ${home_analysis_instrument}${runName}/$sampleName
-
-      working_dir="${home_analysis_instrument}${runName}/${sampleName}/"
-
-
-      /opt/torque/bin/qsub -d ${working_dir}  \
-           -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
-           ${HOME_SHELL}illuminaPipelineInterface.sh
+      #updateStatus "$queueID_re" "bcl2fastq_completed_past" "$environment" "$user"  "$password"
+      submit_sample_illumina $queueID  $runID $instrument $assay $sampleName
 
     fi
-
 
   done
 
 }
+
 
 # ##############################################################################
 # main
@@ -250,7 +309,6 @@ main()
 		DB="ngs_${ENVIRONMENT}"
     DB_HOST="hhplabngsp01"
 		CURRENTDT=`date '+%Y_%m_%d_%H_%M_%S'`
-    NEXTSEQ_SAMPLES=()
 
     # ##########################################################################
     # workflows
@@ -258,11 +316,9 @@ main()
 
     check_db_queue
 
-    if [ ! -f  ${HOME_RUN}${CURRENTDT}_Queued.samples  ] ; then
-      exit 0
-    fi
+		submit_jobs_proton
 
-		submit_job
+    submit_jobs_illumina
 
     log_info "Completed cronjob for $0."
 }
@@ -273,6 +329,3 @@ main()
 # ##############################################################################
 
 main $*
-
-
-    else

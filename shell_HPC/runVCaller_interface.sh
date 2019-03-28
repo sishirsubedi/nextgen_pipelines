@@ -54,21 +54,23 @@ for v_caller in $VCS;do
 		bash ${DIR_SCRIPT}shell/runVCaller_varscan.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
 	elif [[ "$v_caller" = "strelka" ]]; then
 		echo "Starting : " $v_caller
-		#bash ${DIR_SCRIPT}shell/runVCaller_strelka.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
+		bash ${DIR_SCRIPT}shell/runVCaller_strelka.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
 	elif [[ "$v_caller" = "mutect" ]]; then
 		echo "Starting : " $v_caller
 		#bash ${DIR_SCRIPT}shell/runVCaller_mutect.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
   fi
 done
 
-# ###### combine vcfs from all variant callers
-# /opt/python3/bin/python3 ${DIR_SCRIPT}python/combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"
+###### combine vcfs from all variant callers
+#/opt/python3/bin/python3 ${DIR_SCRIPT}python/combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"
 
-
+# tail -n +2 "${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine" > ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.noheader
+#
+#
 # echo " $currentdate    INFO  -  running VEP"
 # /opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
-# -i ${SAMPLE_DIR}/${SAMPLE}.vc.combine.before.vep.vcf.txt \
-# -o ${SAMPLE_DIR}/${SAMPLE}.vc.combine.after.vep.vcf.txt \
+# -i ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.noheader \
+# -o ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.vep \
 # --offline \
 # --dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
 # --vcf \
@@ -82,7 +84,7 @@ done
 # --pubmed \
 # --fasta $REF_GENOME_2 \
 # --force_overwrite
-
-
-##### combine vcfs from all variant callers
-# /opt/python3/bin/python3 ${DIR_SCRIPT}python/parseVEP.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"
+#
+#
+# ##### combine vcfs from all variant callers
+# /opt/python3/bin/python3 ${DIR_SCRIPT}python/parseVEP_exome.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"

@@ -11,10 +11,10 @@
 
 #!/bin/bash
 #PBS -l nodes=1
-#PBS -l walltime=2:00:00
+#PBS -l walltime=24:00:00
 #PBS -q default
-#PBS -o ${PBS_JOBNAME}.out
-#PBS -e ${PBS_JOBNAME}.err
+#PBS Error_Path=${PBS_JOBNAME}.err
+#PBS Output_Path=${PBS_JOBNAME}.out
 #PBS -k eo
 
 # ##############################################################################
@@ -93,6 +93,8 @@ parse_options()
 load_modules()
 {
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_align.sh
+      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
 }
 
 
@@ -110,6 +112,23 @@ create_rundate()
 
 }
 
+
+generate_variantFile()
+{
+
+  heme_bwaAlign $FASTQ_R1 $FASTQ_R2 ${HOME}variantCaller
+
+  heme_varscan ${HOME}variantCaller/${SAMPLENAME}.sort.bam  ${HOME}variantCaller
+
+  bash ${HOME_SHELLDIR}hemeParseVarScan.sh \
+          -s ${HOME}variantCaller/${SAMPLENAME}.snp.txt \
+          -i ${HOME}variantCaller/${SAMPLENAME}.indel.txt \
+          -o ${HOME}variantCaller/  \
+          -e $ENVIRONMENT
+
+   VARIANT_VCF=$(ls ${HOME}variantCaller/${SAMPLENAME}.comb.vcf)
+
+}
 generate_ampliconFile(){
 
   HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
@@ -117,13 +136,11 @@ generate_ampliconFile(){
   /opt/samtools-1.4/samtools-1.4/samtools bedcov  $HEME_EXCLUDED_DESIGN  ${HOME}variantCaller/${SAMPLENAME}.sort.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > ${HOME}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth
 
   AMPLICON_FILE=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth)
-
 }
 
 
 prep_heme()
 {
-
 
   HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
   #bedtools -u flag to write original A entry once if any overlaps found in B
@@ -162,28 +179,25 @@ main()
 
     load_modules
 
-
     RUNFOLDER=$(ls -d /home/$INSTRUMENT/*_"$RUNID"_*)
     RUNNAME=${RUNFOLDER##/home/$INSTRUMENT/}
 
     HOME="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${RUNNAME}/${SAMPLENAME}/"
 		HOME_SHELLDIR="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 
+    exec >  >(tee -a ${HOME}process.log)
+    exec 2> >(tee -a ${HOME}process.log >&2)
+
+
     ##Aligning fastq files
-    echo "Aligning fastq files"
     FASTQ_R1=$RUNFOLDER/out1/"$SAMPLENAME"*_R1_001.fastq.gz
     FASTQ_R2=${FASTQ_R1/_R1_/_R2_}      #replace "R1" with "R2"
-    echo $FASTQ_R1
-    echo $FASTQ_R2
 
     VARIANT_VCF=""
     AMPLICON_FILE=""
 
 		create_dir ${HOME}variantCaller
 		create_dir ${HOME}variantAnalysis
-
-		exec >  >(tee -a ${HOME}process.log)
-		exec 2> >(tee -a ${HOME}process.log >&2)
 
     show_pbsinfo
 
@@ -193,42 +207,31 @@ main()
 		runID : $RUNID
 		sampleName : $SAMPLENAME
 		environment : $ENVIRONMENT
-		queueID : $QUEUEID "
+		queueID : $QUEUEID
+    fastq1 : $FASTQ_R1
+    fastq2 : $FASTQ_R2 "
 
     create_rundate
 
-    if [ $INSTRUMENT == "miseq" ] ; then
-
-      VARIANT_VCF=$(ls /home/${INSTRUMENT}/*_${RUNID}_*/Data/Intensities/BaseCalls/Alignment/${SAMPLENAME}_*.vcf)
-      AMPLICON_FILE=$(ls /home/${INSTRUMENT}/*_${RUNID}_*/Data/Intensities/BaseCalls/Alignment/AmpliconCoverage_M1.tsv)
-
-      echo $VARIANT_VCF
-      echo $AMPLICON_FILE
-
-    if [ $INSTRUMENT == "nextseq" ] ; then
-
-	     bash ${HOME_SHELLDIR}VarScanPipelinePE.sh -p $FASTQ_R1 -q $FASTQ_R2 -o ${HOME}variantCaller -e $ENVIRONMENT
+    if [ $ASSAY == "heme" ] ; then
 
 
-       VARIANT_VCF=$(ls ${HOME}variantCaller/${SAMPLENAME}.comb.vcf)
+       generate_variantFile
+
        generate_ampliconFile
 
-       echo $VARIANT_VCF
-       echo $AMPLICON_FILE
+       log_info " variant file is - $VARIANT_VCF"
+       log_info " amplicon file is - $AMPLICON_FILE"
 
        prep_heme
 
 
+       #update_status "$QUEUEID" "Started" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+
+       run_illuminaPipeline
+
+
     fi
-
-
-    prep_heme
-
-
-    #update_status "$QUEUEID" "Started" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-
-    run_illuminaPipeline
-
 
 
 }

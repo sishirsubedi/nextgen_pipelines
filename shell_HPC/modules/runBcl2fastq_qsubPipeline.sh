@@ -2,15 +2,97 @@
 #PBS -l mem=32gb,nodes=1
 #PBS -l walltime=5:00:00
 #PBS -q default
+# ##############################################################################
+# # functions
+# ##############################################################################
 
+display_usuage()
+{
+cat <<EOF >> /dev/stderr
 
-echo " from compute node: bcl2fastq is running for $DIR"
+ USAGE: $0
 
-/usr/local/bin/bcl2fastq --no-lane-splitting --runfolder-dir $DIR --output-dir ${DIR}out2 -d 10 -p 10
+ OPTIONS:
+ u - user
+ p - password
+ d - database
+ b - database host
+ r - runID
+EOF
+}
 
+parse_options()
+{
+    IMPORT=0
 
-wait $!
+		while getopts "hz:u:p:d:b:r:" opt ; do
+				case $opt in
+					h)
+						 display_usuage
+						 exit 1
+						 ;;
+					z)
+						IMPORT=$OPTARG
+						;;
+					u)
+					  USER=$OPTARG
+						;;
+					p)
+						PASSWORD=$OPTARG
+						;;
+				  d)
+				    DB=$OPTARG
+					  ;;
+				  b)
+						DB_HOST=$OPTARG
+						;;
+					r)
+						RUNID=$OPTARG
+						;;
+					:)
+						echo "Option -$OPTARG requires an argument."
+						;;
+					\?)
+						echo "Invalid option: -$OPTARG"
+			esac
+	  done
+		if [ $IMPORT -gt 0 ] ; then
+				return 0
+		fi
+		return 1
+}
 
+load_modules()
+{
+      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+}
 
-updatestatement="UPDATE pipelineStatusBcl2Fastq SET status=1 WHERE runID = $runID;"
-mysql --user="$user" --password="$password" --database="$environment" --execute="$updatestatement"
+main()
+{
+  parse_options $*
+
+  if [ $? -eq 0 ]
+  then
+      echo "Error in previous step. Aborting $0"
+      exit 0
+  fi
+
+  ############################################################################
+  # initialize variables
+  ############################################################################
+
+  load_modules
+
+  DIR=$(ls -d /home/nextseq/*_"$RUNID"_*)
+
+  /usr/local/bin/bcl2fastq --no-lane-splitting --runfolder-dir $DIR --output-dir ${DIR}out2 -d 10 -p 10
+  wait $!
+
+  updatestatement="UPDATE pipelineStatusBcl2Fastq SET status=1 WHERE runID = $RUNID;"
+  mysql --host=$DB_HOST --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
+
+  log_info "Bcl2fastq completed for $DIR"
+
+}
+
+main $*

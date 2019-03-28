@@ -123,12 +123,11 @@ filter_vep()
 filter_amplicon()
 {
 
-
   log_info "Filter amplicon"
 
-	sampleCol=$(head -n 1 ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.txt | awk -F"\t" -v sample=$SAMPLENAME '{for (i=1; i<= NF; i++) if($i==sample) print i}')
+ sampleCol=$(head -n 1  ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.txt | awk -F"\t" '{print NF; exit}')
 
-	if [ $sampleCol = "" ]
+	if [ $sampleCol != "2" ]
 		then
 			echo "amplicon info not found in amplicon file for sample:$SAMPLENAME"
 	fi
@@ -178,18 +177,18 @@ main()
 
 
     # update_status "$QUEUEID" "RunningVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-		#run_vep
-
+		run_vep
+    #
     # update_status "$QUEUEID" "CompletedVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-		#
-		#parse_vep
-		#
-		#filter_vep
-		#
-		#filter_amplicon
-		#
+    #
+		parse_vep
+    #
+		filter_vep
+    #
+		filter_amplicon
+    #
     # update_status "$QUEUEID" "UpdatingDatabase" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-		#
+
 		update_db
 
 }

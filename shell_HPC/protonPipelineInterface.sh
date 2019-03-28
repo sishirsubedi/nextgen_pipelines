@@ -147,10 +147,10 @@ prep_gene50()
 
 }
 
-run_ionPipeline()
+run_protonPipeline()
 {
 
-  bash ${HOME_SHELLDIR}ionPipeline.sh -d $HOME \
+  bash ${HOME_SHELLDIR}protonPipeline.sh -d $HOME \
         -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
 
 }
@@ -195,7 +195,7 @@ main()
 
     show_pbsinfo
 
-    log_info " Running ionPipeline Interface BY qsub for :
+    log_info " Running Proton Pipeline Interface by QSUB for :
 		assay : $ASSAY
 		instrument : $INSTRUMENT
 		runID : $RUNID
@@ -204,8 +204,6 @@ main()
 		callerID : $CALLERID
 		environment : $ENVIRONMENT
 		queueID : $QUEUEID "
-
-
 
 
     create_rundate
@@ -218,7 +216,7 @@ main()
 
     update_status "$QUEUEID" "Started" "$ENVIRONMENT" "$USER"  "$PASSWORD"
 
-    run_ionPipeline
+    run_protonPipeline
 }
 
 

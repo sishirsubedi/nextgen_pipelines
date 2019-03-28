@@ -174,7 +174,7 @@ main()
 		HOME_SHELL="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 		DB="ngs_${ENVIRONMENT}"
 
-		log_info " Running ion pipeline for :
+		log_info " Running proton pipeline for :
 		director : $HOME
 		sampleName : $SAMPLENAME
 		coverageID : $COVERAGEID

@@ -25,4 +25,6 @@ OUT_DIR :$OUT_DIR
 #           --min-avg-qual 30
 
 
-/opt/python3/bin/python3 /home/pipelines/ngs_${ENV}/python/parseVarscan_2.py  $SAMPLE  $OUT_DIR  $ENV
+/opt/python3/bin/python3 /home/pipelines/ngs_${ENV}/python/parseVarscan.py  $SAMPLE  $OUT_DIR  $ENV
+
+/opt/python3/bin/python3 /home/pipelines/ngs_${ENV}/python/filterCreDesign.py  ${OUT_DIR}  ${SAMPLE}.varscan.parafilter  $ENV

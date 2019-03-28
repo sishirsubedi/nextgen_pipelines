@@ -115,9 +115,9 @@ load_variants()
 
        variantfile=$(ls ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter2.txt)
 
-   elif [ "$INSTRUMENT" == "miseq" ] ; then
+   elif [ "$INSTRUMENT" == "nextseq" ] ; then
 
-       variantfile=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf)
+       variantfile=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.filter2.vcf)
    fi
 
    if [ ! -f $variantfile ]; then
@@ -147,7 +147,7 @@ load_amplicons()
 
       ampliconfile=$(ls ${HOME}${COVERAGEID}/amplicon.filter.filter2.txt)
 
-    elif [ "$INSTRUMENT" == "miseq" ] ; then
+    elif [ "$INSTRUMENT" == "nextseq" ] ; then
 
       /opt/python3/bin/python3 ${HOME_PYTHON}loadSampleAmplicons.py \
       -i ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.filter2.txt \
