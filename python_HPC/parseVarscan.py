@@ -21,19 +21,17 @@ ENV=sys.argv[3]
 ##################################
 
 VARSCAN_PVAL=0.01
-NORMAL_DEPTH=25
+NORMAL_DEPTH=20
 TUMOR_DEPTH=20
 NORMAL_ALT_ALLELE_FREQ=2.0
 TUMOR_ALT_ALLELE_FREQ=10.0
-NORMAL_STRAND_BIAS_PLUS=15
-NORMAL_STRAND_BIAS_MINUS=4
+NORMAL_STRAND_BIAS_PLUS=0
+NORMAL_STRAND_BIAS_MINUS=0
 TUMOR_STRAND_BIAS_1_MINUS=0
 TUMOR_STRAND_BIAS_1_PLUS=0
-TUMOR_STRAND_BIAS_2_MINUS=2
-TUMOR_STRAND_BIAS_2_PLUS=8
+TUMOR_STRAND_BIAS_2_MINUS=0
+TUMOR_STRAND_BIAS_2_PLUS=0
 FDR=0.0000000001
-
-
 
 
 ##################################S
@@ -139,4 +137,4 @@ for indx,row in df_both_pass_s0.iterrows():
 
 df_vcf=pd.DataFrame(vcf)
 df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
-df_vcf.to_csv(OUT_DIR+SAMPLE+".varscan.filter.vcf.txt",sep='\t',index=False)
+df_vcf.to_csv(OUT_DIR+SAMPLE+".varscan.parafilter",sep='\t',index=False)

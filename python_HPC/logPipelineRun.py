@@ -26,10 +26,7 @@ def logIntoDB(queueID,user,passwd,db):
     #### calculate the file size
     vcf_file=''
     filesize=0
-    if pipeline.instrument == 'miseq':
-        vcf_file = glob.glob(os.path.join('/home', pipeline.instrument, '*_'+pipeline.runID+'_*', 'Data','Intensities', 'BaseCalls', 'Alignment' ,pipeline.sampleName+'_*.vcf' ))
-        filesize = os.stat(vcf_file[0]).st_size / 1000
-    elif pipeline.instrument == 'proton':
+    if pipeline.instrument == 'proton':
         vcf_file = glob.glob(os.path.join('/home', pipeline.instrument, '*'+pipeline.runID, 'plugin_out','variantCaller_out*',pipeline.sampleName,'TSVC_variants.vcf'))
         filesize = os.stat(vcf_file[0]).st_size / 1000
     elif pipeline.instrument == 'nextseq': ##check fastq here
@@ -67,15 +64,13 @@ def getPipelineRunTime(queueID,user,passwd,db,pipeline):
     try:
         connection = mysql.connector.connect(host=db_host,database=db, user=user, password=passwd)
         cursor = connection.cursor(prepared=True)
-        query = "SELECT TIME_TO_SEC(TIMEDIFF(t2.timeUpdated,t1.timeUpdated))  as difference from pipelineStatus as t1 inner join pipelineStatus as t2 on  t1.queueID = t2.queueID where t1.queueID=%s and t1.plStatus='started' and t2.plStatus='pipelineCompleted'"
+        query = "SELECT TIME_TO_SEC(TIMEDIFF(t2.timeUpdated,t1.timeUpdated))  as difference from pipelineStatus as t1 inner join pipelineStatus as t2 on  t1.queueID = t2.queueID where t1.queueID=%s and t1.plStatus='Started' and t2.plStatus='PipelineCompleted'"
         cursor.execute(query, (queueID,))
         timediff=0
         for row in cursor:
             if pipeline.instrument=='proton' and pipeline.assay=='neuro':
                 timediff=row[0] # store in seconds
             elif pipeline.instrument=='proton' and pipeline.assay=='gene50':
-                timediff=row[0]
-            elif pipeline.instrument=='miseq' and pipeline.assay=='heme':
                 timediff=row[0]
             elif pipeline.instrument=='nextseq' and pipeline.assay=='heme':
                 timediff=row[0]/60 # store in minutes

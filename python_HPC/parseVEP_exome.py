@@ -45,7 +45,7 @@ SAMPLE=sys.argv[1]
 OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
 
-VEP_FILE=OUT_DIR+"/"+SAMPLE+".vc.combine.after.vep.vcf.txt"
+VEP_FILE=OUT_DIR+"/"+SAMPLE+".variantcallers.combine.vep"
 
 
 header=[]
@@ -71,7 +71,7 @@ for col in ['IMPACT','Consequence']:
     plt.savefig(col)
     plt.close()
 
-df_vep.to_csv(OUT_DIR+"/"+SAMPLE+".vc.combine.parsed.vep.vcf.txt",sep='\t',index=False)
+df_vep.to_csv(OUT_DIR+"/"+SAMPLE+".variantcallers.combine.vep.parse",sep='\t',index=False)
 
 
 print(calcTiTvRatio(df_vep))

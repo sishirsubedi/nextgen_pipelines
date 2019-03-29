@@ -69,7 +69,7 @@ TUMOR_DP_MU = 200
 TUMOR_DP_SIGMA = 1000
 NORMAL_REF_FREQ = 0.98
 NORMAL_ALT_FREQ = 0.02
-TUMOR_ALT_FREQ = 0.1
+TUMOR_ALT_FREQ = 0.0
 
 ##################################
 ### read files
@@ -182,4 +182,4 @@ for indx,row in df_both.iterrows():
 
 df_vcf=pd.DataFrame(vcf)
 df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
-df_vcf.to_csv(OUT_DIR+SAMPLE+".strelka.filter.vcf.txt",sep='\t',index=False)
+df_vcf.to_csv(OUT_DIR+SAMPLE+".strelka.parafilter",sep='\t',index=False)

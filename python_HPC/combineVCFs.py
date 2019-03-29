@@ -21,11 +21,11 @@ OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
 ############################################################
 
-file1 = OUT_DIR+"/varscan/"+SAMPLE+".varscan.filter.vcf.txt"
+file1 = OUT_DIR+"/varscan/"+SAMPLE+".varscan.parafilter.crefilter"
 df_f1 = pd.read_csv(file1,sep='\t')
-file2 = OUT_DIR+"/mutect/"+SAMPLE+".mutect.filter.vcf.txt"
+file2 = OUT_DIR+"/mutect/"+SAMPLE+".mutect.parafilter.crefilter"
 df_f2 = pd.read_csv(file2,sep='\t')
-file3 = OUT_DIR+"/strelka/"+SAMPLE+".strelka.filter.vcf.txt"
+file3 = OUT_DIR+"/strelka/"+SAMPLE+".strelka.parafilter.crefilter"
 df_f3 = pd.read_csv(file3,sep='\t')
 
 
@@ -44,4 +44,4 @@ for indx,row in df_all.iterrows():
 
 df_all['POS'] = df_all['POS'].astype(int)
 df_all=df_all[['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']]
-df_all.to_csv(OUT_DIR+"/"+SAMPLE+".vc.combine.before.vep.vcf.txt",index=False,header=False,sep='\t')
+df_all.to_csv(OUT_DIR+"/"+SAMPLE+".variantcallers.combine",index=False,header=True,sep='\t')
