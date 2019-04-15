@@ -4,6 +4,43 @@ import cyvcf2
 import numpy as np
 import optparse
 
+aaDic= {
+"A" :	"Ala",
+"C"	:	"Cys",
+"D"	:	"Asp",
+"E"	:	"Glu",
+"F"	:	"Phe",
+"G"	:	"Gly",
+"H"	:	"His",
+"I"	:	"Ile",
+"K"	:	"Lys",
+"L"	:	"Leu",
+"M"	:	"Met",
+"N"	:	"Asn",
+"O"	:	"Pyl",
+"P"	:	"Pro",
+"Q"	:	"Gln",
+"R"	:	"Arg",
+"S"	:	"Ser",
+"T"	:	"Thr",
+"U"	:	"Sec",
+"V"	:	"Val",
+"W"	:	"Trp",
+"Y"	:	"Tyr",
+"*"	:	"Ter",
+"X"	:	"Unknown"
+}
+
+def countLetter(s):
+  d=l=0
+  for c in s:
+      if c.isdigit():
+          d=d+1
+      elif c.isalpha():
+          l=l+1
+      else:
+          pass
+  return l
 
 def fileParser(infile, outfile, source):
 
@@ -72,41 +109,6 @@ def fileParser(infile, outfile, source):
         df.to_csv(outfile,index=False)
 
     elif source == 'oncokb':
-        aaDic= {
-        "A" :	"Ala",
-        "C"	:	"Cys",
-        "D"	:	"Asp",
-        "E"	:	"Glu",
-        "F"	:	"Phe",
-        "G"	:	"Gly",
-        "H"	:	"His",
-        "I"	:	"Ile",
-        "K"	:	"Lys",
-        "L"	:	"Leu",
-        "M"	:	"Met",
-        "N"	:	"Asn",
-        "P"	:	"Pro",
-        "Q"	:	"Gln",
-        "R"	:	"Arg",
-        "S"	:	"Ser",
-        "T"	:	"Thr",
-        "U"	:	"Sec",
-        "V"	:	"Val",
-        "W"	:	"Trp",
-        "Y"	:	"Tyr",
-        "X"	:	"Unknown"
-        }
-
-        def countLetter(s):
-          d=l=0
-          for c in s:
-              if c.isdigit():
-                  d=d+1
-              elif c.isalpha():
-                  l=l+1
-              else:
-                  pass
-          return l
 
         df = pd.read_csv(infile,sep='\t',encoding='latin-1')
         df = df.iloc[:,[0,1,3,5,6,7]]
@@ -124,16 +126,17 @@ def fileParser(infile, outfile, source):
 
     elif source == 'civic':
         df = pd.read_csv(infile,sep='\t')
-        df = df[['gene', 'entrez_id', 'chromosome', 'start', 'reference_bases', 'variant_bases',\
-                  'variant', 'disease', 'drugs', \
-		          'evidence_type', 'evidence_direction', 'evidence_level', \
-                  'clinical_significance', 'evidence_statement', \
-	              'variant_summary', 'variant_origin' ]]
-        df.columns =['gene', 'entrez_id', 'chr', 'pos', 'ref', 'alt',\
-                  'variant', 'disease', 'drugs', \
-		          'evidence_type', 'evidence_direction', 'evidence_level', \
-                  'clinical_significance', 'evidence_statement', \
-	              'variant_summary', 'variant_origin' ]
+        df = df[['gene', 'variant', 'variant_origin' ,'variant_civic_url']]
+
+        lf_pc=[]
+        for indx,row in df.iterrows():
+          pc=row['variant']
+          if countLetter(pc) ==2 and len(pc)>2 and '/' not in pc and pc[1].isdigit():
+              lf_pc.append(aaDic[pc[0]]+pc[1:len(pc)-1]+aaDic[pc[len(pc)-1]])
+              # print(pc, aaDic[pc[0]]+pc[1:len(pc)-1]+aaDic[pc[len(pc)-1]])
+          else:
+              lf_pc.append(pc)
+        df['variant_LF'] = lf_pc
         df.to_csv(outfile,index=False)
 
     elif source == 'gnomad':
@@ -215,30 +218,48 @@ def fileParser(infile, outfile, source):
 
 
     elif source=='pmkb':
-        df = pd.read_csv(infile,encoding='latin-1')
+        df=pd.read_csv(infile,dtype={"Gene": str, "Tumor Type(s)": str, "Tissue Type(s)":str, "Variant(s)":str})
         df.columns=['gene','tumor_type','tissue_type','variant']
         filter=[]
         for indx,row in df.iterrows():
+
+            if str(row['variant']) == 'nan':
+                continue
+
             variants = row['variant'].split(',')
+
             for v in variants:
-                tumor_type= row['tumor_type'].split(',')
-                tumors=''
-                if len(tumor_type)>2:
-                    tumors = ','.join(tumor_type[0:2])
+
+                variant_sep= v.replace(row['gene'],'').replace(' ','')
+
+                variant_lf=""
+                if countLetter(variant_sep) ==2 and len(variant_sep)>2 and '/' not in variant_sep and variant_sep[1].isdigit():
+                    variant_lf=aaDic[variant_sep[0]]+variant_sep[1:len(variant_sep)-1]+aaDic[variant_sep[len(variant_sep)-1]]
                 else:
-                    tumors=tumor_type[0]
+                    variant_lf=variant_sep
+
+
+                tumors=''
+                if str(row['tumor_type']) != 'nan':
+                    tumor_type= row['tumor_type'].split(',')
+                    if len(tumor_type)>2:
+                        tumors = ','.join(tumor_type[0:2])
+                    else:
+                        tumors=tumor_type[0]
 
                 tissues=''
-                tissue_type=row['tissue_type'].split(',')
-                if len(tissue_type)>1:
-                    tissues = ','.join(tissue_type[0:2])
-                else:
-                    tissues = tissue_type[0]
-                filter.append([row['gene'],tumors,tissues,v.replace(row['gene'],'').replace(' ','')])
+                if str(row['tissue_type']) != 'nan':
+                    tissue_type=row['tissue_type'].split(',')
+                    if len(tissue_type)>1:
+                        tissues = ','.join(tissue_type[0:2])
+                    else:
+                        tissues = tissue_type[0]
 
-        df_filter=pd.DataFrame(filter)
-        df_filter.columns=['gene','tumor_type','tissue_type','variant']
-        df_filter.to_csv(outfile,sep='\t',index=False)
+                filter.append([row['gene'],tumors,tissues,variant_sep,variant_lf])
+
+                df_filter=pd.DataFrame(filter)
+                df_filter.columns=['gene','tumor_type','tissue_type','variant','variant_lf']
+                df_filter.to_csv(outfile,sep='\t',index=False)
 
 
 
