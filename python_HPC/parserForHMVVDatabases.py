@@ -1,4 +1,3 @@
-
 import pandas as pd
 import cyvcf2
 import numpy as np
@@ -122,8 +121,6 @@ def fileParser(infile, outfile, source):
         df['Protein Change LF'] = lf_pc
         df.to_csv(outfile,index=False)
 
-
-
     elif source == 'civic':
         df = pd.read_csv(infile,sep='\t')
         df = df[['gene', 'variant', 'variant_origin' ,'variant_civic_url']]
@@ -139,7 +136,7 @@ def fileParser(infile, outfile, source):
         df['variant_LF'] = lf_pc
         df.to_csv(outfile,index=False)
 
-    elif source == 'gnomad':
+    elif source == 'gnomad_lf':
 
         vcf = cyvcf2.VCF(infile)
 
@@ -217,6 +214,38 @@ def fileParser(infile, outfile, source):
             w.close()
 
 
+    elif source == 'gnomad':
+
+        vcf = cyvcf2.VCF(infile)
+
+        with open(outfile,"w") as w:
+            header = ['gnomad-id','chr','pos','ref','alt','AF']
+            bunch=100000
+            count=1
+            filter=[]
+            w.writelines('\t'.join(str(j) for j in header) + '\n')
+            for row in vcf:
+                current =[]
+                current.append(row.ID)
+                current.append('chr'+str(row.CHROM))
+                current.append(row.POS)
+                current.append(row.REF)
+                current.append(str(row.ALT).replace(']','').replace('[','').replace("'",''))
+                if str(row.INFO.get('AF')) == 'None':
+                    current.append(0.0)
+                else:
+                    current.append(round(row.INFO.get('AF')*100,5))
+                filter.append(current)
+
+                if len(filter) == bunch:
+                    print("processed " , count , " hundred thousand rows.")
+                    w.writelines('\t'.join(str(j) for j in i) + '\n' for i in filter)
+                    filter=[]
+                    count += 1
+            w.writelines('\t'.join(str(j) for j in i) + '\n' for i in filter)
+            w.close()
+
+
     elif source=='pmkb':
         df=pd.read_csv(infile,dtype={"Gene": str, "Tumor Type(s)": str, "Tissue Type(s)":str, "Variant(s)":str})
         df.columns=['gene','tumor_type','tissue_type','variant']
@@ -275,4 +304,4 @@ try:
     fileParser(infile, outfile, source)
 
 except TypeError:
-	print ("python parserForMongo.py -help for help")
+	print ("python parserForHMVVDatabases.py -help for help")
