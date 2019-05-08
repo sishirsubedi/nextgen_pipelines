@@ -1,17 +1,19 @@
-##############################################################################
+#===============================================================================
 #
-# Houston Methodist Hospital
-# Molecular Diagnostic
+# FILE: runPipelines.sh
 #
-#Description:
-#This script checks samples queued in instrument/assay specific txt file
-# and calls appropriate interface script.
-#Allocates appropriate PBS parameters.
-##############################################################################
+#DESCRIPTION: This script is run by qsub for the assays run on
+#             the illumina nextseq machine.
+# OPTIONS: see function display_usuage below
+# REQUIREMENTS:
+# COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
+# REVISION:
+#===============================================================================
+
 
 #!/bin/bash
-#PBS -l nodes=1
-#PBS -l walltime=24:00:00
+#PBS -l mem=16gb,nodes=1:ppn=4
+#PBS -l walltime=10:00:00
 #PBS -q default
 #PBS Error_Path=${PBS_JOBNAME}.err
 #PBS Output_Path=${PBS_JOBNAME}.out
@@ -21,7 +23,7 @@
 # # functions
 # ##############################################################################
 
-display_usuage()
+display_usage()
 {
 cat <<EOF >> /dev/stderr
 
@@ -115,20 +117,51 @@ create_rundate()
 
 generate_variantFile()
 {
+  ### alignment ########
+  update_status "$QUEUEID" "Alignment" "$DB" "$USER"  "$PASSWORD"
+  # heme_bwaAlign $FASTQ_R1 $FASTQ_R2 ${HOME}variantCaller
 
-  heme_bwaAlign $FASTQ_R1 $FASTQ_R2 ${HOME}variantCaller
 
-  heme_varscan ${HOME}variantCaller/${SAMPLENAME}.sort.bam  ${HOME}variantCaller
+  if [ ! -f "${HOME}variantCaller/${SAMPLENAME}.sort.bam" ] ; then
 
-  bash ${HOME_SHELLDIR}hemeParseVarScan.sh \
-          -s ${HOME}variantCaller/${SAMPLENAME}.snp.txt \
-          -i ${HOME}variantCaller/${SAMPLENAME}.indel.txt \
-          -o ${HOME}variantCaller/  \
-          -e $ENVIRONMENT
+    log_error "ERROR:Alignment output file not found"
+    update_status "$QUEUEID" "ERROR:Alignment" "$DB" "$USER"  "$PASSWORD"
+    exit
+
+  else
+
+    log_info "Completed Alignment"
+
+  fi
+
+
+  ### variant caller ########
+  update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
+  # heme_varscan ${HOME}variantCaller/${SAMPLENAME}.sort.bam  ${HOME}variantCaller
+
+  if [ ! -f "${HOME}variantCaller/${SAMPLENAME}.snp.txt" ] ; then
+
+    log_error "ERROR:VariantCaller output file not found"
+    update_status "$QUEUEID" "ERROR:VariantCaller" "$DB" "$USER"  "$PASSWORD"
+    exit
+
+  else
+
+    log_info "Completed VariantCaller"
+
+  fi
+
+
+  # bash ${HOME_SHELLDIR}hemeParseVarScan.sh \
+  #         -s ${HOME}variantCaller/${SAMPLENAME}.snp.txt \
+  #         -i ${HOME}variantCaller/${SAMPLENAME}.indel.txt \
+  #         -o ${HOME}variantCaller/  \
+  #         -e $ENVIRONMENT
 
    VARIANT_VCF=$(ls ${HOME}variantCaller/${SAMPLENAME}.comb.vcf)
-
 }
+
+
 generate_ampliconFile(){
 
   HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
@@ -136,6 +169,18 @@ generate_ampliconFile(){
   /opt/samtools-1.4/samtools-1.4/samtools bedcov  $HEME_EXCLUDED_DESIGN  ${HOME}variantCaller/${SAMPLENAME}.sort.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > ${HOME}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth
 
   AMPLICON_FILE=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth)
+
+  if [ ! -f "${HOME}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth" ] ; then
+
+    log_error "ERROR:AmpliconFile output file not found"
+    update_status "$QUEUEID" "ERROR:AmpliconFile" "$DB" "$USER"  "$PASSWORD"
+    exit
+
+  else
+    log_info "Completed AmpliconFile"
+
+  fi
+
 }
 
 
@@ -184,13 +229,14 @@ main()
 
     HOME="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${RUNNAME}/${SAMPLENAME}/"
 		HOME_SHELLDIR="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
-
+    DB="ngs_${ENVIRONMENT}"
     exec >  >(tee -a ${HOME}process.log)
     exec 2> >(tee -a ${HOME}process.log >&2)
 
+    update_status "$QUEUEID" "Started" "$DB" "$USER"  "$PASSWORD"
 
     ##Aligning fastq files
-    FASTQ_R1=$RUNFOLDER/out1/"$SAMPLENAME"*_R1_001.fastq.gz
+    FASTQ_R1=$RUNFOLDER/out2/"$SAMPLENAME"*_R1_001.fastq.gz
     FASTQ_R2=${FASTQ_R1/_R1_/_R2_}      #replace "R1" with "R2"
 
     VARIANT_VCF=""
@@ -215,7 +261,6 @@ main()
 
     if [ $ASSAY == "heme" ] ; then
 
-
        generate_variantFile
 
        generate_ampliconFile
@@ -224,9 +269,6 @@ main()
        log_info " amplicon file is - $AMPLICON_FILE"
 
        prep_heme
-
-
-       #update_status "$QUEUEID" "Started" "$ENVIRONMENT" "$USER"  "$PASSWORD"
 
        run_illuminaPipeline
 

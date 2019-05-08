@@ -25,7 +25,7 @@ parse_options()
 {
     IMPORT=0
 
-		while getopts "hz:u:p:d:b:r:" opt ; do
+		while getopts "hz:u:p:d:b:r:e:" opt ; do
 				case $opt in
 					h)
 						 display_usuage
@@ -49,6 +49,10 @@ parse_options()
 					r)
 						RUNID=$OPTARG
 						;;
+          e)
+  					ENVIRONMENT=$OPTARG
+  					;;
+
 					:)
 						echo "Option -$OPTARG requires an argument."
 						;;
@@ -60,11 +64,6 @@ parse_options()
 				return 0
 		fi
 		return 1
-}
-
-load_modules()
-{
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
 }
 
 main()
@@ -81,17 +80,13 @@ main()
   # initialize variables
   ############################################################################
 
-  load_modules
-
   DIR=$(ls -d /home/nextseq/*_"$RUNID"_*)
 
-  /usr/local/bin/bcl2fastq --no-lane-splitting --runfolder-dir $DIR --output-dir ${DIR}out2 -d 10 -p 10
+  /usr/local/bin/bcl2fastq --no-lane-splitting --runfolder-dir $DIR --output-dir "${DIR}/out2" -d 10 -p 10
   wait $!
 
   updatestatement="UPDATE pipelineStatusBcl2Fastq SET status=1 WHERE runID = $RUNID;"
   mysql --host=$DB_HOST --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
-
-  log_info "Bcl2fastq completed for $DIR"
 
 }
 

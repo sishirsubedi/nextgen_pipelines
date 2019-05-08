@@ -39,7 +39,7 @@ update_status()
 {
 user=$4
 password=$5
-database="ngs_$3"
+database=$3
 insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
 mysql --host="hhplabngsp01" --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
 }

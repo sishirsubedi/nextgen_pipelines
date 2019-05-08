@@ -14,7 +14,7 @@
 # # functions
 # ##############################################################################
 
-display_usuage()
+display_usage()
 {
 cat <<EOF >> /dev/stderr
 
@@ -103,8 +103,6 @@ get_IDs()
 
   done < <(mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$getids_statement" -N)
 
-  log_info " get_IDS(): sampleid is - $SAMPLEID, runid is - $RUNID, instrument is - $INSTRUMENT"
-
 }
 
 load_variants()
@@ -113,11 +111,11 @@ load_variants()
 
     if [ "$INSTRUMENT" == "proton" ] ; then
 
-       variantfile=$(ls ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter2.txt)
+       variantfile=$(ls ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt)
 
    elif [ "$INSTRUMENT" == "nextseq" ] ; then
 
-       variantfile=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.filter2.vcf)
+       variantfile=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf)
    fi
 
    if [ ! -f $variantfile ]; then
@@ -184,7 +182,6 @@ email_user()
   usergetstatement="select email from users where userID in (select enteredBy from samples as t1  join pipelineQueue as t2 on  t1.sampleID=t2.sampleID where t2.queueID ='$QUEUEID');"
   useremail=$(mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$usergetstatement" -N)
 
-  log_info "Emailing $useremail with completed message"
 
   message=$'Pipeline Completed for-
   				instrument : '$INSTRUMENT' ,
@@ -194,6 +191,8 @@ email_user()
   				callerID : '$CALLERID' ,
   				environment : '$ENVIRONMENT' ,
   				queueID : '$QUEUEID' '
+
+  log_info "Emailing $useremail with completed message"
   echo $message
 
   echo $message |  mailx  -s "Pipeline completed for sample:$SAMPLENAME , run:$RUNID" "$useremail"
@@ -224,16 +223,20 @@ main()
 		DB="ngs_${ENVIRONMENT}"
     DB_HOST="hhplabngsp01"
 
-		log_info " Running db update for :
-		environment : $ENVIRONMENT
-		queueID : $QUEUEID
-    directory : $HOME "
 
     SAMPLEID=""
     RUNID=""
     INSTRUMENT=""
 
     get_IDs
+
+    log_info " Running database update for :
+    environment : $ENVIRONMENT
+    queueID : $QUEUEID
+    directory : $HOME
+    sampleid : $SAMPLEID
+    rundi :  $RUNID
+    instrument : $INSTRUMENT"
 
     load_variants
 
@@ -243,7 +246,7 @@ main()
 
     email_user
 
-    update_status "$QUEUEID" "PipelineCompleted" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "PipelineCompleted" "$DB" "$USER"  "$PASSWORD"
 
 }
 

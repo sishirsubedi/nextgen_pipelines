@@ -21,7 +21,7 @@
 # # functions
 # ##############################################################################
 
-display_usuage()
+display_usage()
 {
 cat <<EOF >> /dev/stderr
 
@@ -186,6 +186,7 @@ main()
     HOME="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${RUNNAME}/${SAMPLENAME}/"
 		HOME_SHELLDIR="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 
+    DB="ngs_${ENVIRONMENT}"
 
 		create_dir ${HOME}$CALLERID
 		create_dir ${HOME}$COVERAGEID
@@ -214,7 +215,9 @@ main()
 			prep_gene50
 		fi
 
-    update_status "$QUEUEID" "Started" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+    log_info "Preparation for $ASSAY assay completed."
+
+    update_status "$QUEUEID" "Started" "$DB" "$USER"  "$PASSWORD"
 
     run_protonPipeline
 }

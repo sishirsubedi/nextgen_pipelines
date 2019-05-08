@@ -1,12 +1,15 @@
-##############################################################################
+#===============================================================================
 #
-# Houston Methodist Hospital
-# Molecular Diagnostic
+# FILE: runPipelines.sh
 #
-#Description:
-#This script checks parameters, creates run and sample directory
-# and calls pipeline script.
-##############################################################################
+#DESCRIPTION: This script is called by illumina interface script run by qsub
+#             for the assays run on the illumina nextseq machine.
+# OPTIONS: see function display_usuage below
+# REQUIREMENTS:
+# COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
+# REVISION:
+#===============================================================================
+
 
 #!/bin/bash
 
@@ -14,7 +17,7 @@
 # # functions
 # ##############################################################################
 
-display_usuage()
+display_usage()
 {
 cat <<EOF >> /dev/stderr
 
@@ -23,8 +26,6 @@ cat <<EOF >> /dev/stderr
  OPTIONS:
  d - sample directory under analysis environment
  s - sampleName
- c - coverageID
- v - callerID
  e - environment
  q - queueID
  u - user
@@ -84,13 +85,13 @@ load_modules()
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_vep.sh
 }
 
-
-
 run_vep()
 {
 	log_info "Running VEP"
 
-  start_vep "${HOME}variantAnalysis/${SAMPLENAME}.filter.vcf"  "${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf"
+  # vep_83 "${HOME}variantAnalysis/${SAMPLENAME}.filter.vcf"  "${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf"
+
+  vep_94_panel "${HOME}variantAnalysis/${SAMPLENAME}.filter.vcf"  "${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf"
 
   log_info "Completed VEP"
 }
@@ -99,8 +100,8 @@ parse_vep()
 {
   log_info "Parse VEP"
 
-	python ${HOME_PYTHON}parseVEP.py \
-					parseIllumina  \
+	python ${HOME_PYTHON}parseVEP_v2.py \
+					parseIlluminaNextseq   \
 					-I ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf\
 					-o ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf
 }
@@ -143,7 +144,7 @@ update_db()
 
   log_info "Updating Database"
 
-  bash ${HOME_SHELL}runDBUpdate.sh -d $HOME -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -q $QUEUEID -e $ENVIRONMENT -u $USER -p $PASSWORD
+  bash ${HOME_SHELL}runDBUpdate.sh -d $HOME -s $SAMPLENAME -c "-" -v "-" -q $QUEUEID -e $ENVIRONMENT -u $USER -p $PASSWORD
 
 }
 # ##############################################################################
@@ -176,18 +177,17 @@ main()
 		queueID : $QUEUEID "
 
 
-    # update_status "$QUEUEID" "RunningVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "RunningVEP" "$DB" "$USER"  "$PASSWORD"
 		run_vep
-    #
-    # update_status "$QUEUEID" "CompletedVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-    #
+    update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD"
+
 		parse_vep
-    #
+
 		filter_vep
-    #
+
 		filter_amplicon
-    #
-    # update_status "$QUEUEID" "UpdatingDatabase" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+
+    update_status "$QUEUEID" "UpdatingDatabase" "$DB" "$USER"  "$PASSWORD"
 
 		update_db
 

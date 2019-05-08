@@ -17,7 +17,7 @@
 # ##############################################################################
 
 
-display_usuage()
+display_usage()
 {
 cat <<EOF >> /dev/stderr
 
@@ -75,6 +75,14 @@ load_modules()
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/runBcl2fastqPipeline.sh
 }
 
+update_status_host()
+{
+user=$4
+password=$5
+database=$3
+insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
+mysql  --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
+}
 # ##############################################################################
 # workflow:check_db_queue
 # ##############################################################################
@@ -102,23 +110,28 @@ check_db_queue()
 			COVERAGE - $coverageID
 			CALLER - $callerID"
 
-	   ###update sampleAnalysisQueue table and set status of this queue to 1 i.e started processing
+	   ##update sampleAnalysisQueue table and set status of this queue to 1 i.e started processing
 	   updatestatement="update pipelineQueue SET status=1 where queueID = $queueID;"
 		 mysql  --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
 
      if [ "$instrument" == "proton" ] ; then
 
        if [ ! -f ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples ]; then
+
          create_file "$HOME_RUN"  "${CURRENTDT}_ProtonQueued.samples"
          echo "##queueID;runID;sampleName;coverageID;callerID;assay;instrument;ENVIRONMENT##RUNDATE-$CURRENTDT"  >> ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples
+
        fi
+
        echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples
 
      elif [ "$instrument" == "nextseq" ] ;then
 
        if [ ! -f ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples ]; then
+
          create_file "$HOME_RUN"  "${CURRENTDT}_IlluminaQueued.samples"
          echo "##queueID;runID;sampleName;coverageID;callerID;assay;instrument;ENVIRONMENT##RUNDATE-$CURRENTDT"  >> ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples
+
        fi
 
        echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples
@@ -155,7 +168,7 @@ submit_jobs_proton()
     instrument="${line[6]}"
 
 
-    echo $queueID $runID $instrument $assay $sampleName
+    log_info "current sample -" $queueID $runID $instrument $assay $sampleName
 
     home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/"
 
@@ -186,18 +199,83 @@ submit_sample_illumina()
 
   runFolder=$(ls -d /home/$instrument/*_"$runID"_*)
   runName=${runFolder##/home/$instrument/}
-
   home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/"
 
-  create_dir ${home_analysis_instrument}$runName
-  create_dir ${home_analysis_instrument}${runName}/$sampleName
+  create_dir "${home_analysis_instrument}$runName"
+  create_dir "${home_analysis_instrument}${runName}/$sampleName"
 
   working_dir="${home_analysis_instrument}${runName}/${sampleName}/"
 
-  log_info "Submitting illuminaPipelineInterface.sh"
+  log_info "Submitting illuminaPipelineInterface"
+
+
   /opt/torque/bin/qsub -d ${working_dir}  \
        -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
        ${HOME_SHELL}illuminaPipelineInterface.sh
+}
+
+process_sample_llumina()
+{
+  line=$1
+  queueID="${line[0]}"
+  runID="${line[1]}"
+  sampleName="${line[2]}"
+  coverageID="${line[3]}"
+  callerID="${line[4]}"
+  assay="${line[5]}"
+  instrument="${line[6]}"
+
+  log_info "current sample -" $queueID   $runID $instrument $assay $sampleName
+  fastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
+
+  if [ $fastqStatus == "0" ] ; then
+
+    lockdir=${HOME_RUN}nextseq_${runID}.lock
+
+    ## mkdir is atomic, file or file variable is not
+    if mkdir "$lockdir" ; then
+
+      log_info "Acquired lock for run-$runID , sample- $sampleName , lockfile- $lockdir"
+      log_info "bcl2fastq_running_now run-$runID , sample- $sampleName "
+      update_status_host "$queueID" "bcl2fastq_running_now" "$DB" "$USER"  "$PASSWORD"
+
+      run_bcl2fastq $USER  $PASSWORD  $DB  $DB_HOST  $runID $ENVIRONMENT
+
+      ### sleep for an hour and keep checking database if bcl2fastq for this run is completed
+      checkfastqStatus="0"
+      while [ $checkfastqStatus == "0" ]; do
+
+          sleep 1h
+
+          checkfastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
+
+          log_info "checking bcl2fastq status -- $checkfastqStatus, run-$runID , sample- $sampleName"
+
+      done
+
+      log_info  "bcl2fastq_completed_now,  run-$runID , sample- $sampleName"
+      update_status_host "$queueID" "bcl2fastq_completed_now" "$DB" "$USER"  "$PASSWORD"
+
+      submit_sample_illumina $queueID  $runID $instrument $assay $sampleName
+
+      rm -rf "$lockdir"
+
+    else
+      updatestatement="UPDATE pipelineQueue SET pipelineQueue.status=0 WHERE queueID = $queueID;"
+      mysql --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
+
+      log_info  "bcl2fastq_wait,  run-$runID , sample- $sampleName"
+      update_status_host "$queueID" "bcl2fastq_wait" "$DB" "$USER"  "$PASSWORD"
+
+    fi
+
+  else
+
+    log_info "bcl2fastq_completed_past,  run-$runID , sample- $sampleName"
+    update_status_host "$queueID" "bcl2fastq_completed_past" "$DB" "$USER"  "$PASSWORD"
+    submit_sample_illumina $queueID  $runID $instrument $assay $sampleName
+  fi
+
 }
 
 submit_jobs_illumina()
@@ -212,74 +290,9 @@ submit_jobs_illumina()
 
   tail -n +2 ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples | while IFS=';' read -ra line; do
 
-    queueID="${line[0]}"
-  	runID="${line[1]}"
-  	sampleName="${line[2]}"
-  	coverageID="${line[3]}"
-  	callerID="${line[4]}"
-    assay="${line[5]}"
-    instrument="${line[6]}"
-
-    echo $queueID   $runID $instrument $assay $sampleName
-    fastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
-
-    if [ $fastqStatus == "0" ] ; then
-
-      lockdir=${HOME_RUN}nextseq_${runID}.lock
-
-      ## mkdir is atomic, file or file variable is not
-      if mkdir "$lockdir" ; then
-
-        log_info "Acquired lock for $lockdir"
-        log_info "bcl2fastq_running_now"
-        #updateStatus "$queueID_re" "bcl2fastq_running_now" "$environment" "$user"  "$password"
-
-        run_bcl2fastq $USER  $PASSWORD  $DB  $DB_HOST  $runID $ENVIRONMENT
-
-        ### sleep for an hour and keep checking database if bcl2fastq is completed
-        checkfastqStatus="0"
-        while [ $checkfastqStatus == "0" ]; do
-
-            sleep 1h
-
-            checkfastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
-
-            log_info "checking bcl2fastq status -- $checkfastqStatus"
-
-        done
-
-
-        #updateStatus "$queueID_re" "bcl2fastq_completed_now" "$environment" "$user"  "$password"
-        submit_sample_illumina $queueID  $runID $instrument $assay $sampleName
-
-        rm -rf "$lockdir"
-
-      else
-
-        tail -n +2 ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples | while IFS=';' read -ra line; do
-
-          queueID_re="${line[0]}"
-          runID_re="${line[1]}"
-
-    		      if [ $runID_re == $runID ]; then
-
-    			           updatestatement="UPDATE pipelineQueue SET pipelineQueue.status=0 WHERE queueID = $queueID_re;"
-    			           mysql --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
-
-    			           #updateStatus "$queueID_re" "bcl2fastq_wait" "$environment" "$user"  "$password"
-    		      fi
-
-    	  done
-      fi
-    else
-
-      #updateStatus "$queueID_re" "bcl2fastq_completed_past" "$environment" "$user"  "$password"
-      submit_sample_illumina $queueID  $runID $instrument $assay $sampleName
-
-    fi
+       process_sample_llumina $line &
 
   done
-
 }
 
 
@@ -290,8 +303,7 @@ main()
 {
     parse_options $*
 
-    if [ $? -eq 0 ]
-    then
+    if [ $? -eq 0 ] ; then
 			  log_error "Import flag non-zero. Aborting $0"
         exit 1
     fi

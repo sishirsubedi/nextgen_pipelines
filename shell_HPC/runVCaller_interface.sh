@@ -42,6 +42,10 @@ fi
 #get all variant callers in list
 VCS=$(echo $VARIANT_CALLERS | tr "-" "\n")
 
+DEPTH="10"
+NALF="10"
+TALF="2"
+
 for v_caller in $VCS;do
 
 	if [ ! -d ${SAMPLE_DIR}/${v_caller} ] ; then
@@ -51,40 +55,51 @@ for v_caller in $VCS;do
 
 	if [[ "$v_caller" = "varscan" ]];then
 		echo "Starting : " $v_caller
-		bash ${DIR_SCRIPT}shell/runVCaller_varscan.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
+		bash ${DIR_SCRIPT}shell/runVCaller_varscan.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV  $DEPTH  $NALF  $TALF
 	elif [[ "$v_caller" = "strelka" ]]; then
 		echo "Starting : " $v_caller
-		bash ${DIR_SCRIPT}shell/runVCaller_strelka.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
+		bash ${DIR_SCRIPT}shell/runVCaller_strelka.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV $DEPTH $NALF $TALF
 	elif [[ "$v_caller" = "mutect" ]]; then
 		echo "Starting : " $v_caller
-		#bash ${DIR_SCRIPT}shell/runVCaller_mutect.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV
+		bash ${DIR_SCRIPT}shell/runVCaller_mutect.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENV $DEPTH $NALF $TALF
   fi
+
 done
 
-###### combine vcfs from all variant callers
-#/opt/python3/bin/python3 ${DIR_SCRIPT}python/combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"
 
-# tail -n +2 "${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine" > ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.noheader
-#
-#
-# echo " $currentdate    INFO  -  running VEP"
-# /opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
-# -i ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.noheader \
-# -o ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.vep \
-# --offline \
-# --dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
-# --vcf \
-# --refseq \
-# --pick_allele \
-# --sift p \
-# --polyphen p \
-# --hgvs \
-# --symbol \
-# --vcf \
-# --pubmed \
-# --fasta $REF_GENOME_2 \
-# --force_overwrite
-#
-#
+
+/opt/python3/bin/python3 /home/hhadmin/exome_pipeline/02_variantCalling/3_compare_samples_3Venn.py  \
+${SAMPLE_DIR}/varscan/${SAMPLE}.varscan.${DEPTH}_${NALF}_${TALF}  \
+${SAMPLE_DIR}/strelka/${SAMPLE}.strelka.${DEPTH}_${NALF}_${TALF} \
+${SAMPLE_DIR}/mutect/${SAMPLE}.mutect.${DEPTH}_${NALF}_${TALF} \
+${SAMPLE_DIR}/ "${DEPTH}_${NALF}_${TALF}"
+
+
+##### combine vcfs from all variant callers
+/opt/python3/bin/python3 ${DIR_SCRIPT}python/combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"  "${DEPTH}_${NALF}_${TALF}"
+
+
+tail -n +2 "${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.${DEPTH}_${NALF}_${TALF}" > ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}
+echo " $currentdate    INFO  -  running VEP"
+/opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
+-i ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF} \
+-o ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}.vep \
+--offline \
+--dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
+--vcf \
+--refseq \
+--pick_allele \
+--sift p \
+--polyphen p \
+--hgvs \
+--symbol \
+--vcf \
+--pubmed \
+--fasta $REF_GENOME_2 \
+--force_overwrite
+
+
+
+
 # ##### combine vcfs from all variant callers
-# /opt/python3/bin/python3 ${DIR_SCRIPT}python/parseVEP_exome.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"
+/opt/python3/bin/python3 ${DIR_SCRIPT}python/parseVEP_exome.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"  "${DEPTH}_${NALF}_${TALF}"

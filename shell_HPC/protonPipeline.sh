@@ -14,7 +14,7 @@
 # # functions
 # ##############################################################################
 
-display_usuage()
+display_usage()
 {
 cat <<EOF >> /dev/stderr
 
@@ -93,7 +93,6 @@ load_modules()
 
 split_protonVCF()
 {
-
 	python ${HOME_PYTHON}splitVcf.py \
 				-I ${HOME}${CALLERID}/TSVC_variants.filter.vcf \
 				-f FAO,FDP,AF \
@@ -104,24 +103,36 @@ run_vep()
 {
 	log_info "Running VEP"
 
-  start_vep "${HOME}${CALLERID}/TSVC_variants.filter.split.vcf"  "${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf"
+  # vep_83 "${HOME}${CALLERID}/TSVC_variants.filter.split.vcf"  "${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf"
+  vep_94_panel "${HOME}${CALLERID}/TSVC_variants.filter.split.vcf"  "${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf"
 
-  log_info "Completed VEP"
+  if [ ! -f "${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf" ] ; then
+
+    log_error "ERROR:VEP output file not found"
+    update_status "$QUEUEID" "ERROR:VEP" "$DB" "$USER"  "$PASSWORD"
+    exit
+
+  else
+
+    log_info "Completed VEP"
+
+  fi
 }
 
 parse_vep()
 {
-  log_info "Parse VEP"
+  log_info "Parsing VEP results"
 
-	python ${HOME_PYTHON}parseVEP.py \
+	python ${HOME_PYTHON}parseVEP_v2.py \
 					parseIonNewVarView \
 					-I ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf \
 					-o ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt
+
 }
 
 filter_vep()
 {
-	log_info "filter VEP"
+	log_info "Filtering VEP variants (High/Moderate/>100)"
 	shopt -s nocasematch
 	if [[ $SAMPLENAME =~ horizon ]]
 	then
@@ -136,7 +147,7 @@ filter_vep()
 
 filter_amplicon()
 {
-  log_info "Filter amplicon"
+  log_info "Filtering <100 depth amplicons"
 
 	awk -F'\t' -v OFS='\t' '{if($10 < 100) print $4,$10}' ${HOME}${COVERAGEID}/amplicon.filter.txt \
 	> ${HOME}${COVERAGEID}/amplicon.lessThan100.txt
@@ -175,7 +186,7 @@ main()
 		DB="ngs_${ENVIRONMENT}"
 
 		log_info " Running proton pipeline for :
-		director : $HOME
+		directory : $HOME
 		sampleName : $SAMPLENAME
 		coverageID : $COVERAGEID
 		callerID : $CALLERID
@@ -184,10 +195,11 @@ main()
 
 		split_protonVCF
 
-    update_status "$QUEUEID" "RunningVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
-		run_vep
+    update_status "$QUEUEID" "RunningVEP" "$DB" "$USER"  "$PASSWORD"
 
-    update_status "$QUEUEID" "CompletedVEP" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+    run_vep
+
+    update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD"
 
 		parse_vep
 
@@ -195,7 +207,7 @@ main()
 
 		filter_amplicon
 
-    update_status "$QUEUEID" "UpdatingDatabase" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "UpdatingDatabase" "$DB" "$USER"  "$PASSWORD"
 
 		update_db
 
