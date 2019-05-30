@@ -19,13 +19,16 @@ def addVCInfo(row,df):
 SAMPLE=sys.argv[1]
 OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
+type=sys.argv[4]
 ############################################################
+# type="nofilter.crefilter"
 
-file1 = OUT_DIR+"/varscan/"+SAMPLE+".varscan.parafilter.crefilter"
+
+file1 = OUT_DIR+"/varscan/"+SAMPLE+".varscan."+type
 df_f1 = pd.read_csv(file1,sep='\t')
-file2 = OUT_DIR+"/mutect/"+SAMPLE+".mutect.parafilter.crefilter"
+file2 = OUT_DIR+"/mutect/"+SAMPLE+".mutect."+type
 df_f2 = pd.read_csv(file2,sep='\t')
-file3 = OUT_DIR+"/strelka/"+SAMPLE+".strelka.parafilter.crefilter"
+file3 = OUT_DIR+"/strelka/"+SAMPLE+".strelka."+type
 df_f3 = pd.read_csv(file3,sep='\t')
 
 
@@ -40,8 +43,11 @@ for indx,row in df_all.iterrows():
     temp.append(addVCInfo(row,df_f1))
     temp.append(addVCInfo(row,df_f2))
     temp.append(addVCInfo(row,df_f3))
-    df_all.at[indx,'INFO'] += ';'+str(temp[0]) + ';'+str(temp[1]) + ';'+str(temp[2])
+    if sum(temp) >=2:
+        df_all.at[indx,'INFO'] += ';'+str(temp[0]) + ';'+str(temp[1]) + ';'+str(temp[2])
+    else:
+        df_all.drop(indx,inplace=True)
 
 df_all['POS'] = df_all['POS'].astype(int)
 df_all=df_all[['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']]
-df_all.to_csv(OUT_DIR+"/"+SAMPLE+".variantcallers.combine",index=False,header=True,sep='\t')
+df_all.to_csv(OUT_DIR+"/"+SAMPLE+".variantcallers.combine."+type,index=False,header=True,sep='\t')

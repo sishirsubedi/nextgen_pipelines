@@ -206,7 +206,7 @@ submit_sample_illumina()
 
   working_dir="${home_analysis_instrument}${runName}/${sampleName}/"
 
-  log_info "Submitting illuminaPipelineInterface"
+  log_info "Submitting illuminaPipelineInterface ; current sample - $queueID ; $runID ; $instrument ; $assay ; $sampleName"
 
 
   /opt/torque/bin/qsub -d ${working_dir}  \
@@ -225,7 +225,7 @@ process_sample_llumina()
   assay="${line[5]}"
   instrument="${line[6]}"
 
-  log_info "current sample -" $queueID   $runID $instrument $assay $sampleName
+  log_info "current sample - $queueID ; $runID ; $instrument ; $assay ; $sampleName"
   fastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
 
   if [ $fastqStatus == "0" ] ; then
@@ -331,6 +331,8 @@ main()
 		submit_jobs_proton
 
     submit_jobs_illumina
+
+    sleep 10s
 
     log_info "Completed cronjob for $0."
 }

@@ -15,23 +15,27 @@ warnings.filterwarnings("ignore")
 SAMPLE=sys.argv[1]
 OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
+DEPTH=sys.argv[4]
+NALF=sys.argv[5]
+TALF=sys.argv[6]
 
 ##################################
 ### filter parameters
 ##################################
 
+print(DEPTH,NALF,TALF)
 VARSCAN_PVAL=0.01
-NORMAL_DEPTH=20
-TUMOR_DEPTH=20
-NORMAL_ALT_ALLELE_FREQ=2.0
-TUMOR_ALT_ALLELE_FREQ=10.0
+NORMAL_DEPTH=int(DEPTH)
+TUMOR_DEPTH=int(DEPTH)
+NORMAL_ALT_ALLELE_FREQ=float(NALF)
+TUMOR_ALT_ALLELE_FREQ=float(TALF)
 NORMAL_STRAND_BIAS_PLUS=0
 NORMAL_STRAND_BIAS_MINUS=0
 TUMOR_STRAND_BIAS_1_MINUS=0
 TUMOR_STRAND_BIAS_1_PLUS=0
 TUMOR_STRAND_BIAS_2_MINUS=0
 TUMOR_STRAND_BIAS_2_PLUS=0
-FDR=0.0000000001
+FDR=0.01
 
 
 ##################################S
@@ -66,13 +70,15 @@ df_both.sort_values(by=['somatic_status'],inplace=True)
 ##################################
 filter_indx = df_both[df_both['chrom'].str.contains("GL|gl")].index
 df_both.drop(filter_indx, inplace=True)
+filter_indx = df_both[df_both['chrom'].str.contains("chrM")].index
+df_both.drop(filter_indx, inplace=True)
 
+##################################
 
 ##################################
 ### filter somatic
 ##################################
 df_both_pass_s0 = df_both[(df_both['somatic_status'].isin(['Somatic']) )]
-
 ##################################
 ### update additional columns
 ##################################
@@ -95,17 +101,20 @@ df_both_pass_s0['somatic_p_value_adj']= [ pvalAdj(x,df_both_pass_s0.shape[0],FDR
 df_both_pass_s0['somatic_p_value_adj_filter']=[1 if x[0]<x[1] else 0 for x in zip(df_both_pass_s0['somatic_p_value'], df_both_pass_s0['somatic_p_value_adj']) ]
 df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['somatic_p_value_adj_filter']==1]
 
-##################################
-### alt frequency
-##################################
+
+# df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['somatic_p_value']<VARSCAN_PVAL]
+
+#################################
+## alt frequency
+#################################
 df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['normal_var_freq_percent']<NORMAL_ALT_ALLELE_FREQ]
 df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['tumor_var_freq_percent']>=TUMOR_ALT_ALLELE_FREQ]
-# print('After normal var freq:'+ str(df_both_pass_s0.shape[0]))
+print('After normal var freq:'+ str(df_both_pass_s0.shape[0]))
 
 
-##################################
-### depth
-##################################
+#################################
+## depth
+#################################
 df_both_pass_s0 = df_both_pass_s0[ (df_both_pass_s0['normal_depth']>=NORMAL_DEPTH) & (df_both_pass_s0['tumor_depth']>=TUMOR_DEPTH) ]
 print('After depth 20x:'+ str(df_both_pass_s0.shape[0]))
 
@@ -137,4 +146,4 @@ for indx,row in df_both_pass_s0.iterrows():
 
 df_vcf=pd.DataFrame(vcf)
 df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
-df_vcf.to_csv(OUT_DIR+SAMPLE+".varscan.parafilter",sep='\t',index=False)
+df_vcf.to_csv(OUT_DIR+SAMPLE+".varscan."+DEPTH+"_"+NALF+"_"+TALF,sep='\t',index=False)

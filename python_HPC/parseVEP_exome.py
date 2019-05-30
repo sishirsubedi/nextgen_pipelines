@@ -44,9 +44,9 @@ def calcIndelRatio(df):
 SAMPLE=sys.argv[1]
 OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
+type=sys.argv[4]
 
-VEP_FILE=OUT_DIR+"/"+SAMPLE+".variantcallers.combine.vep"
-
+VEP_FILE=OUT_DIR+"/"+SAMPLE+".variantcallers.combinev2."+type+".vep"
 
 header=[]
 with open(VEP_FILE) as myfile:
@@ -63,16 +63,6 @@ costum_line=['ND','TD','VARSCAN','MUTECT','STRELKA','CSQ']
 df_vep[costum_line] = df_vep[' Allele'].str.split(';',expand=True)
 df_vep.drop([' Allele'],axis=1,inplace=True)
 
-
-for col in ['IMPACT','Consequence']:
-    figure(figsize=(16,8))
-    fig=sns.countplot(y=df_vep[col], data=df_vep)
-    plt.tight_layout()
-    plt.savefig(col)
-    plt.close()
-
-df_vep.to_csv(OUT_DIR+"/"+SAMPLE+".variantcallers.combine.vep.parse",sep='\t',index=False)
-
-
-print(calcTiTvRatio(df_vep))
-print(calcIndelRatio(df_vep))
+unfilter_indx = df_vep[df_vep['Consequence'].str.contains("missense_variant|inframe_insertion|inframe_deletion|stop_gained|frameshift_variant|coding_sequence_variant")].index
+df_vep=df_vep.iloc[unfilter_indx,:]
+df_vep.to_csv(OUT_DIR+"/"+SAMPLE+".variantcallers.combinev2."+type+".vep.parse.txt",sep='\t',index=False)

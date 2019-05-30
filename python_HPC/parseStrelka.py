@@ -43,7 +43,10 @@ def getSNPAlleleFreq(ref, a_count, t_count,g_count, c_count,tier):
 
     total_allele= sum([int(x.split(',')[tier]) for x in [a_count, t_count,g_count, c_count]])
 
-    return (allele_count/total_allele)
+    if total_allele == 0.0:
+        return 0.0
+    else:
+        return (allele_count/total_allele)
 
 def getINDELAlleleFreq(type, normal_count, indel_count,tier):
     allele_count =0.0
@@ -54,22 +57,11 @@ def getINDELAlleleFreq(type, normal_count, indel_count,tier):
 
     total_allele= int(normal_count.split(',')[tier]) + int(indel_count.split(',')[tier])
 
-    return (allele_count/total_allele)
+    if total_allele == 0.0:
+        return 0.0
+    else:
+        return (allele_count/total_allele)
 
-
-#########################
-QSS_ALPHA = 1/50
-QSS_MU = 600
-QSS_SIGMA = 1000
-NORMAL_DP_ALPHA = 1/70
-NORMAL_DP_MU = 250
-NORMAL_DP_SIGMA = 1000
-TUMOR_DP_ALPHA = 1/50
-TUMOR_DP_MU = 200
-TUMOR_DP_SIGMA = 1000
-NORMAL_REF_FREQ = 0.98
-NORMAL_ALT_FREQ = 0.02
-TUMOR_ALT_FREQ = 0.0
 
 ##################################
 ### read files
@@ -77,6 +69,29 @@ TUMOR_ALT_FREQ = 0.0
 SAMPLE=sys.argv[1]
 OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
+DEPTH=sys.argv[4]
+NALF=sys.argv[5]
+TALF=sys.argv[6]
+#########################
+
+QSS_ALPHA = 1/50
+QSS_MU = 600
+QSS_SIGMA = 1000
+
+NORMAL_DP_ALPHA = 1/70
+NORMAL_DP_MU = 250
+NORMAL_DP_SIGMA = 1000
+
+TUMOR_DP_ALPHA = 1/50
+TUMOR_DP_MU = 200
+TUMOR_DP_SIGMA = 1000
+
+NORMAL_REF_FREQ = 1.0-(float(NALF)/100.0)
+NORMAL_ALT_FREQ = (float(NALF)/100.0)
+TUMOR_ALT_FREQ =(float(TALF)/100.0)
+
+MIN_DEPTH = int(DEPTH)
+
 
 ###### process snp
 file_snp=OUT_DIR+"output.snvs.vcf.filter.txt"
@@ -85,6 +100,8 @@ df_snp['GROUP']='snp'
 
 ###filtering:
 filter_indx = df_snp[df_snp['CHROM'].str.contains("GL|gl")].index
+df_snp.drop(filter_indx, inplace=True)
+filter_indx = df_snp[df_snp['CHROM'].str.contains("chrM")].index
 df_snp.drop(filter_indx, inplace=True)
 df_snp = df_snp[ df_snp['FILTER']=="PASS"]
 
@@ -132,6 +149,8 @@ df_indel['GROUP']='indel'
 ###filtering:
 filter_indx = df_indel[df_indel['CHROM'].str.contains("GL|gl")].index
 df_indel.drop(filter_indx, inplace=True)
+filter_indx = df_indel[df_indel['CHROM'].str.contains("chrM")].index
+df_indel.drop(filter_indx, inplace=True)
 df_indel = df_indel[ df_indel['FILTER']=="PASS"]
 
 
@@ -177,9 +196,11 @@ df_both = pd.concat([df_snp,df_indel])
 ##################################
 vcf=[]
 for indx,row in df_both.iterrows():
+    if row['NORMAL.DP'] <= MIN_DEPTH or row['TUMOR.DP'] <= MIN_DEPTH:
+        continue
     info=str(row['NORMAL.DP'])+';'+str(row['TUMOR.DP'])
     vcf.append([row['CHROM'],row['POS'],'.',row['REF'],row['ALT'],'.','.',info])
 
 df_vcf=pd.DataFrame(vcf)
 df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
-df_vcf.to_csv(OUT_DIR+SAMPLE+".strelka.parafilter",sep='\t',index=False)
+df_vcf.to_csv(OUT_DIR+SAMPLE+".strelka."+DEPTH+"_"+NALF+"_"+TALF,sep='\t',index=False)

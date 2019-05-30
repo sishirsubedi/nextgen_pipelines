@@ -119,7 +119,7 @@ generate_variantFile()
 {
   ### alignment ########
   update_status "$QUEUEID" "Alignment" "$DB" "$USER"  "$PASSWORD"
-  # heme_bwaAlign $FASTQ_R1 $FASTQ_R2 ${HOME}variantCaller
+  heme_bwaAlign $FASTQ_R1 $FASTQ_R2 ${HOME}variantCaller
 
 
   if [ ! -f "${HOME}variantCaller/${SAMPLENAME}.sort.bam" ] ; then
@@ -137,7 +137,7 @@ generate_variantFile()
 
   ### variant caller ########
   update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
-  # heme_varscan ${HOME}variantCaller/${SAMPLENAME}.sort.bam  ${HOME}variantCaller
+  heme_varscan ${HOME}variantCaller/${SAMPLENAME}.sort.bam  ${HOME}variantCaller
 
   if [ ! -f "${HOME}variantCaller/${SAMPLENAME}.snp.txt" ] ; then
 
@@ -152,11 +152,11 @@ generate_variantFile()
   fi
 
 
-  # bash ${HOME_SHELLDIR}hemeParseVarScan.sh \
-  #         -s ${HOME}variantCaller/${SAMPLENAME}.snp.txt \
-  #         -i ${HOME}variantCaller/${SAMPLENAME}.indel.txt \
-  #         -o ${HOME}variantCaller/  \
-  #         -e $ENVIRONMENT
+  bash ${HOME_SHELLDIR}hemeParseVarScan.sh \
+          -s ${HOME}variantCaller/${SAMPLENAME}.snp.txt \
+          -i ${HOME}variantCaller/${SAMPLENAME}.indel.txt \
+          -o ${HOME}variantCaller/  \
+          -e $ENVIRONMENT
 
    VARIANT_VCF=$(ls ${HOME}variantCaller/${SAMPLENAME}.comb.vcf)
 }
@@ -230,13 +230,14 @@ main()
     HOME="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${RUNNAME}/${SAMPLENAME}/"
 		HOME_SHELLDIR="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
     DB="ngs_${ENVIRONMENT}"
-    exec >  >(tee -a ${HOME}process.log)
-    exec 2> >(tee -a ${HOME}process.log >&2)
 
     update_status "$QUEUEID" "Started" "$DB" "$USER"  "$PASSWORD"
 
+    exec >  >(tee -a ${HOME}process.log)
+    exec 2> >(tee -a ${HOME}process.log >&2)
+
     ##Aligning fastq files
-    FASTQ_R1=$RUNFOLDER/out2/"$SAMPLENAME"*_R1_001.fastq.gz
+    FASTQ_R1=$RUNFOLDER/out1/"$SAMPLENAME"*_R1_001.fastq.gz
     FASTQ_R2=${FASTQ_R1/_R1_/_R2_}      #replace "R1" with "R2"
 
     VARIANT_VCF=""

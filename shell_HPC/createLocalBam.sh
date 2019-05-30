@@ -58,11 +58,6 @@ then
 
 	bamFile=$(ls -f /home/$instrument/*$runID/plugin_out/$callerID/"$sampleName"_*.bam)
 
-elif [ $instrument == "miseq" ]
-then
-
-	bamFile=$(ls -f /home/$instrument/*_"$runID"_*/Data/Intensities/BaseCalls/Alignment/"$sampleName"_*.bam)
-
 elif [ $instrument == "nextseq" ]
 then
 

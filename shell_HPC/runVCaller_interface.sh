@@ -68,7 +68,7 @@ done
 
 
 
-/opt/python3/bin/python3 /home/hhadmin/exome_pipeline/02_variantCalling/3_compare_samples_3Venn.py  \
+/opt/python3/bin/python3 /home/hhadmin/scripts/bioinfoTools/03_variant_report/3_compare_samples_3Venn.py   \
 ${SAMPLE_DIR}/varscan/${SAMPLE}.varscan.${DEPTH}_${NALF}_${TALF}  \
 ${SAMPLE_DIR}/strelka/${SAMPLE}.strelka.${DEPTH}_${NALF}_${TALF} \
 ${SAMPLE_DIR}/mutect/${SAMPLE}.mutect.${DEPTH}_${NALF}_${TALF} \

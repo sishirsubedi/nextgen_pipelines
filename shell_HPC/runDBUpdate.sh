@@ -1,12 +1,15 @@
-##############################################################################
+#===============================================================================
 #
-# Houston Methodist Hospital
-# Molecular Diagnostic
+# FILE: runPipelines.sh
 #
-#Description:
-#This script checks parameters, creates run and sample directory
-# and calls pipeline script.
-##############################################################################
+#DESCRIPTION: This script is common among all pipelines and loads variant and amplicon
+#             information into NGS database.              
+# OPTIONS: see function display_usuage below
+# REQUIREMENTS:
+# COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
+# REVISION:
+#===============================================================================
+
 
 #!/bin/bash
 

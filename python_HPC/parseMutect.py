@@ -15,7 +15,9 @@ warnings.filterwarnings("ignore")
 SAMPLE=sys.argv[1]
 OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
-
+DEPTH=sys.argv[4]
+NALF=sys.argv[5]
+TALF=sys.argv[6]
 
 ##################################
 ### parameters
@@ -57,133 +59,6 @@ for chr in ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','1
 df_main.columns=cols
 df_main.to_csv(OUT_DIR+SAMPLE+".mutect.combine.vcf.txt",sep='\t',index=False)
 
-
-
-def checkRef(df_snp_mut_2,detail):
-    df_snp_1 = pd.read_csv("/home/hhadmin/exome_pipeline/02_variantCalling/COV_1_COV_2/reference_standard_creDesign.txt",sep='\t')
-    df_snp_mut_1 = df_snp_1[['CHROM','POS','REF','ALT']]
-
-    df_join = pd.merge(left=df_snp_mut_1, right=df_snp_mut_2, on=['CHROM','POS','REF','ALT'],how='outer',indicator=True)
-    df_join.to_csv("temp.txt",sep='\t')
-
-    return ( [df_join.shape[0],df_join[df_join['_merge']=='both'].shape[0],df_join[df_join['_merge']=='right_only'].shape[0] ])
-
-    if detail:
-        print("detail")
-
-        plt.xlim(0,50)
-        sns.distplot(df_join[ ( (df_join['_merge']=='both') & (df_join['NORMAL.DP'] < 50 ))]['NORMAL.DP'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['NORMAL.DP'] < 50 ))]['NORMAL.DP'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('NORMAL_DP')
-        plt.close()
-
-        plt.xlim(0,50)
-        sns.distplot(df_join[ ( (df_join['_merge']=='both') & (df_join['TUMOR.DP'] < 50 ))]['TUMOR.DP'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['TUMOR.DP'] < 50 ))]['TUMOR.DP'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('TUMOR_DP')
-        plt.close()
-
-
-        plt.xlim(0,0.10)
-        sns.distplot(df_join[ ( (df_join['_merge']=='both') & (df_join['NORMAL.AF'] < 0.10 ))]['NORMAL.AF'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['NORMAL.AF'] < 0.10 ))]['NORMAL.AF'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('NORMAL_AF')
-        plt.close()
-
-        plt.xlim(0,0.10)
-        sns.distplot(df_join[ ( (df_join['_merge']=='both') & (df_join['TUMOR.AF'] < .10 ))]['TUMOR.AF'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['TUMOR.AF'] < .10 ))]['TUMOR.AF'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('TUMOR_AF')
-        plt.close()
-
-
-        sns.distplot(df_join[df_join['_merge']=='both']['TUMOR.ALT_F1R2'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[df_join['_merge']=='right_only']['TUMOR.ALT_F1R2'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('TUMOR_ALT_F1R2')
-        plt.close()
-
-        sns.distplot(df_join[df_join['_merge']=='both']['TUMOR.ALT_F2R1'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[df_join['_merge']=='right_only']['TUMOR.ALT_F2R1'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('TUMOR_ALT_F2R1')
-        plt.close()
-
-        plt.xlim(0,50)
-        sns.distplot(df_join[ ( (df_join['_merge']=='both') & (df_join['TUMOR.ALT_F1R2'] < 50 ))]['TUMOR.ALT_F1R2'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['TUMOR.ALT_F1R2'] < 50 ))]['TUMOR.ALT_F1R2'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('TUMOR_ALT_F1R2_2')
-        plt.close()
-
-        plt.xlim(0,50)
-        sns.distplot( df_join[ ( (df_join['_merge']=='both') & (df_join['TUMOR.ALT_F2R1'] < 50 ))]['TUMOR.ALT_F2R1'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['TUMOR.ALT_F2R1'] < 50 ))]['TUMOR.ALT_F2R1'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('TUMOR_ALT_F2R1_2')
-        plt.close()
-
-        plt.xlim(0,50)
-        sns.distplot(df_join[ ( (df_join['_merge']=='both') & (df_join['NORMAL.REF_F1R2'] < 50 ))]['NORMAL.REF_F1R2'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['NORMAL.REF_F1R2'] < 50 ))]['NORMAL.REF_F1R2'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('NORMAL_REF_F1R2_2')
-        plt.close()
-
-        plt.xlim(0,50)
-        sns.distplot( df_join[ ( (df_join['_merge']=='both') & (df_join['NORMAL.REF_F2R1'] < 50 ))]['NORMAL.REF_F2R1'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['NORMAL.REF_F2R1'] < 50 ))]['NORMAL.REF_F2R1'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('NORMAL_REF_F2R1_2')
-        plt.close()
-
-        plt.xlim(0,.50)
-        sns.distplot( df_join[ ( (df_join['_merge']=='both') & (df_join['ADJ_AF'] < .50 ))]['ADJ_AF'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['ADJ_AF'] < .50 ))]['ADJ_AF'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('ADJ_AF')
-        plt.close()
-
-        plt.xlim(0,50)
-        sns.distplot( df_join[ ( (df_join['_merge']=='both') & (df_join['ADJ_QSS'] < 50 ))]['ADJ_QSS'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['ADJ_QSS'] < 50 ))]['ADJ_QSS'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('ADJ_QSS')
-        plt.close()
-
-        plt.xlim(0,50)
-        sns.distplot( df_join[ ( (df_join['_merge']=='both') & (df_join['TLOD'] < 50 ))]['TLOD'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['TLOD'] < 50 ))]['TLOD'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('TLOD')
-        plt.close()
-
-        plt.xlim(0,50)
-        sns.distplot( df_join[ ( (df_join['_merge']=='both') & (df_join['NLOD'] < 50 ))]['NLOD'], color='green',kde=False,label='TP')
-        sns.distplot(df_join[ ( (df_join['_merge']=='right_only') & (df_join['NLOD'] < 50 ))]['NLOD'], color='red',kde=False,label='FP')
-        plt.legend()
-        # plt.savefig(OUT_DIR+"/"+SAMPLE+'_DIST_PLOT_normal_var_freq_percent')
-        plt.savefig('NLOD')
-        plt.close()
-
-
 df_both= pd.read_csv(OUT_DIR+SAMPLE+".mutect.combine.vcf.txt",sep='\t')
 
 print(df_both.shape)
@@ -191,6 +66,11 @@ print(df_both.shape)
 ###filtering:
 filter_indx = df_both[df_both['CHROM'].str.contains("GL|gl")].index
 df_both.drop(filter_indx, inplace=True)
+
+filter_indx = df_both[df_both['CHROM'].str.contains("chrM")].index
+df_both.drop(filter_indx, inplace=True)
+
+
 print('After GL/gl:'+ str(df_both.shape[0]))
 
 ## add normal and tumor depth
@@ -199,14 +79,13 @@ df_both['TUMOR.DP'] = df_both['TUMOR.AD'].apply(calcSum)
 df_both['ADJ_AF'] = [calcADJ_AF(x[0],x[1]) for x in zip(df_both['NORMAL.AF'],df_both['TUMOR.AF'])]
 df_both['ADJ_QSS'] = [calcADJ_QSS(x[0],x[1]) for x in zip(df_both['TUMOR.QSS'].str.replace(',','' ).astype(float),df_both['TUMOR.DP'])]
 
-ADJ_AF_FILTER=0.0
 ADJ_QSS_FILTER=30
 NLOD_FILTER=10
 TLOD_FILTER=10
-NORMAL_DEPTH=20
-TUMOR_DEPTH=20
-NORMAL_ALT_ALLELE_FREQ=0.02
-TUMOR_ALT_ALLELE_FREQ=0.1
+NORMAL_DEPTH=int(DEPTH)
+TUMOR_DEPTH=int(DEPTH)
+NORMAL_ALT_ALLELE_FREQ=(float(NALF)/100.0)
+TUMOR_ALT_ALLELE_FREQ=(float(TALF)/100.0)
 NORMAL_STRAND_BIAS_REF_F1R2=0
 NORMAL_STRAND_BIAS_REF_F2R1=0
 TUMOR_STRAND_BIAS_ALT_F1R2=0
@@ -243,4 +122,4 @@ for indx,row in df_both.iterrows():
 
 df_vcf=pd.DataFrame(vcf)
 df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
-df_vcf.to_csv(OUT_DIR+SAMPLE+".mutect.parafilter",sep='\t',index=False)
+df_vcf.to_csv(OUT_DIR+SAMPLE+".mutect."+DEPTH+"_"+NALF+"_"+TALF,sep='\t',index=False)

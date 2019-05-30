@@ -82,7 +82,7 @@ main()
 
   DIR=$(ls -d /home/nextseq/*_"$RUNID"_*)
 
-  /usr/local/bin/bcl2fastq --no-lane-splitting --runfolder-dir $DIR --output-dir "${DIR}/out2" -d 10 -p 10
+  sudo /usr/local/bin/bcl2fastq --no-lane-splitting --runfolder-dir $DIR --output-dir "${DIR}/out1" -d 10 -p 10
   wait $!
 
   updatestatement="UPDATE pipelineStatusBcl2Fastq SET status=1 WHERE runID = $RUNID;"
