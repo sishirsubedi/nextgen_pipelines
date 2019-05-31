@@ -1,15 +1,14 @@
-##############################################################################
-#
-# Houston Methodist Hospital
-# Molecular Diagnostic
-#
-#Description:
-#This script checks samples queued in instrument/assay specific txt file
-# and calls appropriate interface script.
-#Allocates appropriate PBS parameters.
-##############################################################################
-
 #!/bin/bash
+#===============================================================================
+#
+# FILE: protonPipelineInterface.sh
+#
+#DESCRIPTION: This script prepares gene50 and neuro assay from proton instrument
+#             and calls variant annotation pipeline.
+# REQUIREMENTS: runPipelines.sh
+# COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
+#===============================================================================
+
 #PBS -l nodes=1
 #PBS -l walltime=2:00:00
 #PBS -q default
@@ -49,7 +48,7 @@ parse_options()
 		while getopts "hz:r:s:c:v:a:i:e:q:u:p:" opt ; do
 				case $opt in
 					h)
-						 display_usuage
+						 display_usage
 						 exit 1
 						 ;;
 					z)
@@ -103,7 +102,6 @@ load_modules()
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
 }
 
-
 create_rundate()
 {
   declare -A months
@@ -123,14 +121,12 @@ create_rundate()
   fi
 }
 
-
 prep_neuro()
 {
   NEURO_EXCLUDED_DESIGN="/home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed"
 
   #bedtools -u flag to write original A entry once if any overlaps found in B
   /opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $PROTON_VCF -b $NEURO_EXCLUDED_DESIGN > ${HOME}${CALLERID}/TSVC_variants.filter.vcf
-
 
   NEURO_EXCLUDED_AMPLICON="/home/doc/ref/neuralRef/excludedAmplicon.txt"
   # -v means "invert the match" in grep, in other words, return all non matching lines.
@@ -142,7 +138,6 @@ prep_gene50()
 {
 
   ln -s $PROTON_VCF ${HOME}${CALLERID}/TSVC_variants.filter.vcf
-
   ln -s $PROTON_AMPLICON ${HOME}${COVERAGEID}/amplicon.filter.txt
 
 }
@@ -171,7 +166,6 @@ main()
 		############################################################################
 		# initialize variables
 		############################################################################
-
     load_modules
 
 		VARIANTFOLDER=$(ls -d /home/${INSTRUMENT}/*${RUNID}/plugin_out/"$CALLERID")
@@ -222,10 +216,7 @@ main()
     run_protonPipeline
 }
 
-
 # ##############################################################################
 # run main
 # ##############################################################################
-
-
 main $*

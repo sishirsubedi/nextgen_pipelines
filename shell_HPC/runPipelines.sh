@@ -4,19 +4,15 @@
 # FILE: runPipelines.sh
 #
 #DESCRIPTION: This script is run by cronjob.It checks the queue table in NGS
-#             database and submits a sample qsub based on instrument and assay.
-# OPTIONS: see function display_usuage below
-# REQUIREMENTS:
+#             database and submits a sample analysis qsub based
+#             on instrument and assay.
+# REQUIREMENTS: cron
 # COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
-# REVISION:
 #===============================================================================
-
 
 # ##############################################################################
 # # functions
 # ##############################################################################
-
-
 display_usage()
 {
 cat <<EOF >> /dev/stderr
@@ -39,7 +35,7 @@ parse_options()
 
 				case $opt in
 					h)
-					display_usuage
+					display_usage
 					exit 1
 					;;
 	        z)
@@ -83,6 +79,7 @@ database=$3
 insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
 mysql  --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
 }
+
 # ##############################################################################
 # workflow:check_db_queue
 # ##############################################################################
@@ -99,7 +96,7 @@ check_db_queue()
 
   while read -r queueID runID  sampleName coverageID callerID assay instrument status; do
 
-			log_info "Submitting job to QSUB:
+			log_info "Processing the following job queued in the NGS database:
 			ENVIRONMENT - $ENVIRONMENT
 			INSTRUMENT - $instrument
 			ASSAY - $assay
@@ -143,7 +140,6 @@ check_db_queue()
 
 }
 
-
 # ##############################################################################
 # workflow:submit job
 # ##############################################################################
@@ -151,11 +147,11 @@ submit_jobs_proton()
 {
 
   if [ ! -f  ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples  ] ; then
-    log_info "No samples queued on proton."
+    log_info "No samples queued from proton."
     return 1
   fi
 
-  log_info "Samples queued on proton."
+  log_info "Samples queued from proton."
 
   tail -n +2 ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples | while IFS=';' read -ra line; do
 
@@ -168,10 +164,9 @@ submit_jobs_proton()
     instrument="${line[6]}"
 
 
-    log_info "current sample -" $queueID $runID $instrument $assay $sampleName
+    log_info "current sample - $queueID ; $runID ; $instrument ; $assay ; $sampleName"
 
     home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/"
-
 
     runFolder=$(ls -d /home/${instrument}/*$runID)
     runName=${runFolder##*/}
@@ -295,7 +290,6 @@ submit_jobs_illumina()
   done
 }
 
-
 # ##############################################################################
 # main
 # ##############################################################################
@@ -322,24 +316,22 @@ main()
     DB_HOST="hhplabngsp01"
 		CURRENTDT=`date '+%Y_%m_%d_%H_%M_%S'`
 
+
     # ##########################################################################
     # workflows
     # ##########################################################################
-
     check_db_queue
 
 		submit_jobs_proton
 
     submit_jobs_illumina
 
-    sleep 10s
+    sleep 5s
 
     log_info "Completed cronjob for $0."
 }
 
-
 # ##############################################################################
 # run main
 # ##############################################################################
-
 main $*

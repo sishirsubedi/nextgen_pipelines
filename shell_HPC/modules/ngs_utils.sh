@@ -44,7 +44,6 @@ insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VAL
 mysql --host="hhplabngsp01" --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
 }
 
-
 show_pbsinfo()
 {
   echo ------------------------------------------------------

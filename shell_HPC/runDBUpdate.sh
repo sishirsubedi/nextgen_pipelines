@@ -1,22 +1,17 @@
+#!/bin/bash
 #===============================================================================
 #
-# FILE: runPipelines.sh
+# FILE: runDBUpdate.sh
 #
 #DESCRIPTION: This script is common among all pipelines and loads variant and amplicon
-#             information into NGS database.              
-# OPTIONS: see function display_usuage below
-# REQUIREMENTS:
+#             information into NGS database.
+# REQUIREMENTS: protonPipeline.sh and illuminaPipeline.sh
 # COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
-# REVISION:
 #===============================================================================
-
-
-#!/bin/bash
 
 # ##############################################################################
 # # functions
 # ##############################################################################
-
 display_usage()
 {
 cat <<EOF >> /dev/stderr
@@ -43,7 +38,7 @@ parse_options()
 		while getopts "hz:d:s:c:v:q:e:u:p:" opt ; do
 				case $opt in
 					h)
-						 display_usuage
+						 display_usage
 						 exit 1
 						 ;;
           z)
@@ -178,7 +173,6 @@ log_run()
 
 }
 
-
 email_user()
 {
   #### get pipeline entering user
@@ -253,9 +247,7 @@ main()
 
 }
 
-
 # ##############################################################################
 # run main
 # ##############################################################################
-
 main $*

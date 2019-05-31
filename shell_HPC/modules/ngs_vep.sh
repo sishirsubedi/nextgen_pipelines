@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 vep_83()
 {
   /opt/perl/bin/perl /opt/vep/ensembl-tools-release-83/scripts/variant_effect_predictor/variant_effect_predictor.pl \

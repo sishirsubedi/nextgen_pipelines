@@ -1,22 +1,18 @@
+#!/bin/bash
 #===============================================================================
 #
-# FILE: runPipelines.sh
+# FILE: illuminaPipeline.sh
 #
-#DESCRIPTION: This script is called by illumina interface script run by qsub
-#             for the assays run on the illumina nextseq machine.
-# OPTIONS: see function display_usuage below
-# REQUIREMENTS:
+#DESCRIPTION: This script is run to annonate and filter amplicon and variant files.
+# REQUIREMENTS: illuminaPipelineInterface.sh
 # COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
-# REVISION:
 #===============================================================================
-
 
 #!/bin/bash
 
 # ##############################################################################
 # # functions
 # ##############################################################################
-
 display_usage()
 {
 cat <<EOF >> /dev/stderr
@@ -34,7 +30,6 @@ cat <<EOF >> /dev/stderr
 EOF
 }
 
-
 parse_options()
 {
     IMPORT=0
@@ -42,7 +37,7 @@ parse_options()
 		while getopts "hz:d:s:e:q:u:p:" opt ; do
 				case $opt in
 					h)
-						 display_usuage
+						 display_usage
 						 exit 1
 						 ;;
 					z)
@@ -138,7 +133,6 @@ filter_amplicon()
 
 }
 
-
 update_db()
 {
 
@@ -147,6 +141,7 @@ update_db()
   bash ${HOME_SHELL}runDBUpdate.sh -d $HOME -s $SAMPLENAME -c "-" -v "-" -q $QUEUEID -e $ENVIRONMENT -u $USER -p $PASSWORD
 
 }
+
 # ##############################################################################
 # main
 # ##############################################################################
@@ -193,9 +188,7 @@ main()
 
 }
 
-
 # ##############################################################################
 # run main
 # ##############################################################################
-
 main $*

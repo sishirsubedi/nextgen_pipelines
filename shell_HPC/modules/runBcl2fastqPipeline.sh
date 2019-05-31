@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 load_modules()
 {
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
@@ -9,7 +8,6 @@ load_modules()
 
 run_bcl2fastq()
 {
-
 USER=$1
 PASSWORD=$2
 DB=$3

@@ -1,17 +1,14 @@
-#===============================================================================
-#
-# FILE: runPipelines.sh
-#
-#DESCRIPTION: This script is run by qsub for the assays run on
-#             the illumina nextseq machine.
-# OPTIONS: see function display_usuage below
-# REQUIREMENTS:
-# COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
-# REVISION:
-#===============================================================================
-
-
 #!/bin/bash
+#===============================================================================
+#
+# FILE: illuminaPipelineInterface.sh
+#
+#DESCRIPTION: This script is run to generate variant file and amplicon files
+#             for heme assay.
+# REQUIREMENTS: runPipelines.sh
+# COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
+#===============================================================================
+
 #PBS -l mem=16gb,nodes=1:ppn=4
 #PBS -l walltime=10:00:00
 #PBS -q default
@@ -22,7 +19,6 @@
 # ##############################################################################
 # # functions
 # ##############################################################################
-
 display_usage()
 {
 cat <<EOF >> /dev/stderr
@@ -49,7 +45,7 @@ parse_options()
 		while getopts "hz:r:s:a:i:e:q:u:p:" opt ; do
 				case $opt in
 					h)
-						 display_usuage
+						 display_usage
 						 exit 1
 						 ;;
 					z)
@@ -99,7 +95,6 @@ load_modules()
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
 }
 
-
 create_rundate()
 {
 	##get runDate information##
@@ -113,7 +108,6 @@ create_rundate()
 	echo $dateString > ${HOME}runDate.txt
 
 }
-
 
 generate_variantFile()
 {
@@ -161,7 +155,6 @@ generate_variantFile()
    VARIANT_VCF=$(ls ${HOME}variantCaller/${SAMPLENAME}.comb.vcf)
 }
 
-
 generate_ampliconFile(){
 
   HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
@@ -183,7 +176,6 @@ generate_ampliconFile(){
 
 }
 
-
 prep_heme()
 {
 
@@ -196,15 +188,14 @@ prep_heme()
   # -v means "invert the match" in grep, in other words, return all non matching lines.
   grep -v -f $HEME_EXCLUDED_AMPLICON $AMPLICON_FILE > ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.txt
 
-
 }
-
 
 run_illuminaPipeline()
 {
   bash ${HOME_SHELLDIR}illuminaPipeline.sh -d $HOME \
         -s $SAMPLENAME -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
 }
+
 # ##############################################################################
 # main
 # ##############################################################################
@@ -279,10 +270,7 @@ main()
 
 }
 
-
 # ##############################################################################
 # run main
 # ##############################################################################
-
-
 main $*
