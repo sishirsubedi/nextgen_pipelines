@@ -130,8 +130,11 @@ parse_vep()
 filter_vep()
 {
 	log_info "Filtering VEP variants (High/Moderate/>100)"
-	shopt -s nocasematch
-	if [[ $SAMPLENAME =~ horizon ]]
+
+  sample_ID=$(grep "^#CHROM" ${HOME}${CALLERID}/TSVC_variants.filter.vcf |cut -f 10)
+
+  shopt -s nocasematch
+  if [[ $sample_ID =~ horizon ]]
 	then
 		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt \
 		> ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter2.txt

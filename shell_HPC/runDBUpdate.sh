@@ -167,12 +167,6 @@ load_amplicons()
 
 }
 
-log_run()
-{
-/opt/python3/bin/python3 ${HOME_PYTHON}logPipelineRun.py -q "$QUEUEID" -u "$USER" -p "$PASSWORD" -d "$DB" -b "$DB_HOST"
-
-}
-
 email_user()
 {
   #### get pipeline entering user
@@ -238,8 +232,6 @@ main()
     load_variants
 
     load_amplicons
-
-    log_run
 
     email_user
 

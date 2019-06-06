@@ -42,9 +42,9 @@ fi
 #get all variant callers in list
 VCS=$(echo $VARIANT_CALLERS | tr "-" "\n")
 
-DEPTH="10"
-NALF="10"
-TALF="2"
+DEPTH="0"
+NALF="100"
+TALF="0"
 
 for v_caller in $VCS;do
 
@@ -79,27 +79,27 @@ ${SAMPLE_DIR}/ "${DEPTH}_${NALF}_${TALF}"
 /opt/python3/bin/python3 ${DIR_SCRIPT}python/combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"  "${DEPTH}_${NALF}_${TALF}"
 
 
-tail -n +2 "${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.${DEPTH}_${NALF}_${TALF}" > ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}
-echo " $currentdate    INFO  -  running VEP"
-/opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
--i ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF} \
--o ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}.vep \
---offline \
---dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
---vcf \
---refseq \
---pick_allele \
---sift p \
---polyphen p \
---hgvs \
---symbol \
---vcf \
---pubmed \
---fasta $REF_GENOME_2 \
---force_overwrite
-
-
-
-
-# ##### combine vcfs from all variant callers
-/opt/python3/bin/python3 ${DIR_SCRIPT}python/parseVEP_exome.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"  "${DEPTH}_${NALF}_${TALF}"
+# tail -n +2 "${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.${DEPTH}_${NALF}_${TALF}" > ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}
+# echo " $currentdate    INFO  -  running VEP"
+# /opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
+# -i ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF} \
+# -o ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}.vep \
+# --offline \
+# --dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
+# --vcf \
+# --refseq \
+# --pick_allele \
+# --sift p \
+# --polyphen p \
+# --hgvs \
+# --symbol \
+# --vcf \
+# --pubmed \
+# --fasta $REF_GENOME_2 \
+# --force_overwrite
+#
+#
+#
+#
+# # ##### combine vcfs from all variant callers
+# /opt/python3/bin/python3 ${DIR_SCRIPT}python/parseVEP_exome.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENV"  "${DEPTH}_${NALF}_${TALF}"
