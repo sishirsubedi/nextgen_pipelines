@@ -1,114 +1,132 @@
-#!/usr/bin/env bash
-export SHELL=/usr/bin/bash
+#!/bin/bash
 
-ENV="test"
-DIR_SCRIPT="/home/pipelines/ngs_${ENV}/"
-REF_GENOME="/home/doc/ref/ref_genome/ucsc.hg19.fasta"
-MAP_QUALITY="20"
-#################################################
-# Parsing arguments
-#################################################
+# ##############################################################################
+# # functions
+# ##############################################################################
 
-if [ "$#" -eq 0 ]; then
-echo "Usage: runAlignment_Interface.sh"
-echo "-s Sample Name"
-echo "-f Fastq Dir"
-echo "-o Output Dir"
-exit
-fi
+display_usage()
+{
+cat <<EOF >> /dev/stderr
 
-while getopts :s:f:o:q:m: option; do
-	case "$option" in
-    s) SAMPLE="$OPTARG" ;;
-    f) FASTQ_DIR="$OPTARG" ;;
-    o) OUTPUT_DIR="$OPTARG" ;;
-    :) echo "Option -$OPTARG requires an argument." ;;
-	  \?) echo "Invalid option: -$OPTARG" ;;
-	esac
-done
+ USAGE: $0
 
-source /home/pipelines/ngs_${ENV}/shell/modules/ngs_utils.sh
+ OPTIONS:
+ 	-s SAMPLE NAME
+ 	-f FASTQ Directory
+	-o Output Directory
 
-OUTPUT_DIR_SAMPLE="${OUTPUT_DIR}${SAMPLE}/"
-
-create_dir $OUTPUT_DIR_SAMPLE
-
-LOG_FILE="${OUTPUT_DIR}${SAMPLE}.log"
-
-function log {
- MESSAGE=$1
- TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
- SCRIPT="runAlignment_Interface.sh"
- echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE "
- echo " [ $TIMESTAMP ] [ $SCRIPT ] : $MESSAGE " >>${LOG_FILE}
+EOF
 }
 
+parse_options()
+{
+    IMPORT=0
 
-OUTPUT_DIR_SAMPLE_ALIGNMENT="${OUTPUT_DIR_SAMPLE}Alignment/"
-create_dir $OUTPUT_DIR_SAMPLE_ALIGNMENT
+		while getopts "hz:s:f:o:" opt; do
 
+				case $opt in
+					h)
+					display_usage
+					exit 1
+					;;
+	        z)
+					IMPORT=$OPTARG
+					;;
+					s)
+					SAMPLE=$OPTARG
+					;;
+					f)
+					FASTQ_DIR=$OPTARG
+					;;
+					o)
+					OUTPUT_DIR=$OPTARG
+					;;
+					:)
+					echo "Option -$OPTARG requires an argument."
+					;;
+					\?)
+					echo "Invalid option: -$OPTARG"
+		   esac
+    done
 
-log "
-Starting - runAlignment_Interface.sh
-SAMPLE - $SAMPLE
-FASTQ_DIR - $FASTQ_DIR
-OUTPUT_DIR - $OUTPUT_DIR
-OUTPUT_DIR_SAMPLE - $OUTPUT_DIR_SAMPLE
-OUTPUT_DIR_SAMPLE_ALIGNMENT - $OUTPUT_DIR_SAMPLE_ALIGNMENT
-LOG_FILE - $LOG_FILE"
+    if [ $IMPORT -gt 0 ] ; then
+        return 0
+    fi
 
-# ##################################################################################################
-# # Trimmomatic to remove adapters and select reads with average read quality q20
-# ##################################################################################################
-#
-log "Running Trimmomatic: Removing sequences < Q20 sample- $SAMPLE"
-trimmomatic="java -jar /opt/trimmomatic/Trimmomatic-0.33/trimmomatic-0.33.jar PE -phred33 -threads 8 \
-              ${FASTQ_DIR}${SAMPLE}_R1_001.fastq.gz \
-              ${FASTQ_DIR}${SAMPLE}_R2_001.fastq.gz \
-              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
-              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R1_001.fastq.gz \
-              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz \
-              ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R2_001.fastq.gz \
-							TRAILING:20 \
-							AVGQUAL:20 \
-							SLIDINGWINDOW:10:20 \
-							MINLEN:30"
-($trimmomatic) 2>&1 | tee ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.trimmomatic.summary.txt
+    return 1
+}
 
+load_modules()
+{
+	source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+}
 
-log "Running bwa mem aligner: $SAMPLE"
-bash ${DIR_SCRIPT}shell/bwaAlign_exome.sh  $SAMPLE  \
-					$REF_GENOME  \
-					$MAP_QUALITY \
-					${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
-					${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz  \
-				  $OUTPUT_DIR_SAMPLE_ALIGNMENT  \
-					$LOG_FILE
+run_trimmomatic()
+{
+	log "Running Trimmomatic: Removing sequences < Q20 sample- $SAMPLE"
+	trimmomatic="java -jar /opt/trimmomatic/Trimmomatic-0.33/trimmomatic-0.33.jar PE -phred33 -threads 8 \
+	${FASTQ_DIR}${SAMPLE}_R1_001.fastq.gz \
+	${FASTQ_DIR}${SAMPLE}_R2_001.fastq.gz \
+	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
+	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R1_001.fastq.gz \
+	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz \
+	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R2_001.fastq.gz \
+	TRAILING:20 \
+	AVGQUAL:20 \
+	SLIDINGWINDOW:10:20 \
+	MINLEN:30"
+	($trimmomatic) 2>&1 | tee ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.trimmomatic.summary.txt
+}
 
+run_alignment()
+{
+	log "Running bwa mem aligner: $SAMPLE"
+	bash ${DIR_SCRIPT}shell/bwaAlign_exome.sh  $SAMPLE  \
+	$REF_GENOME  \
+	$MAP_QUALITY \
+	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
+	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz  \
+	$OUTPUT_DIR_SAMPLE_ALIGNMENT  \
+	$LOG_FILE
+}
 
+sort_bam()
+{
 log "Generating sorted bam by coordinate sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar SortSam \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bam  \
           O=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam  \
           SORT_ORDER=coordinate
+}
 
+generate_alignStat()
+{
 log "Generating alignment stat sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar CollectAlignmentSummaryMetrics \
           R=$REF_GENOME \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam \
           O=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam.alignmentMetrics.txt
+}
 
+remove_duplicates()
+{
 log "Removing duplicates sample- $SAMPLE "
 java -jar /opt/picard2/picard.jar MarkDuplicates \
           REMOVE_DUPLICATES=true \
           INPUT=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam \
           OUTPUT=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam \
           METRICS_FILE=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam.metrics.txt
+}
 
+generate_bamIndex()
+{
 log "Generating bam index sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar BuildBamIndex \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam
+}
 
+calculate_targetCoverage()
+{
 log "Generating CalculateHsMetrics sample- $SAMPLE "
 # # java -jar /opt/picard/picard-tools-1.134/picard.jar BedToIntervalList  I=cre_v1_design.bed O=/home/hhadmin/exome_pipeline/01_bamQC/cre_v1_design_bed.interval_list SD=/doc/ref/ref_genome/ucsc.hg19.dict
 java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
@@ -117,28 +135,84 @@ java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
           R=$REF_GENOME \
           BAIT_INTERVALS= /home/hhadmin/exome_pipeline/agilentCre/cre_design_bed.interval_list \
           TARGET_INTERVALS= /home/hhadmin/exome_pipeline/agilentCre/cre_design_bed.interval_list
+}
 
+calculate_breadthCoverage()
+{
 /opt/samtools19/bin/samtools depth ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam  > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.bed
 awk '{ if ( ( $1 !~ "chrM") && ( $1 !~ /\_/  ) && ( $3 >= 10) ) {print $1 "\t" $2 "\t" $2+1 "\t" $3} }' ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.bed > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.filter2.bed
 /opt/bedtools2/bin/bedtools intersect -a ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.filter2.bed -b /home/hhadmin/exome_pipeline/01_bamQC/cre_design_ucsc_exon.txt_filter.csv -wa -wb > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.filter2.exon_intersect.bed
+}
+
+calculate_uniformity()
+{
+log "#####generating uniformity calculation sample- $SAMPLE "
+/opt/bedtools2/bin/bedtools coverage -a /home/hhadmin/exome_pipeline/01_bamQC/cre_design.bed -b ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed -mean > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
+# /opt/python3/bin/python3 /home/hhadmin/exome_pipeline/01_bamQC/06_uniformityPlots.py  ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
+
+/opt/samtools19/bin/samtools view ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam | awk '{ n=length($10); print gsub(/[AaTt]/,"",$10)/n;}' > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.ATCount.txt
+}
+
+# ##############################################################################
+# main
+# ##############################################################################
+main()
+{
+	parse_options $*
+
+	if [ $? -eq 0 ] ; then
+			log_error "Import flag non-zero. Aborting $0"
+			exit 1
+	fi
 
 
-# log "#####generating bamtobed sample- $SAMPLE "
-# /opt/bedtools2/bin/bedtools bamtobed -i ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bed
-# /opt/bedtools2/bin/bedtools bamtobed -i ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bed
-# awk '$1 !~ "chrM" {print $1"\t"$2"\t"$3}' ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bed > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed
-# awk '$1 !~ /\_/ {print}' ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter2.bed
-#
+
+	ENVIRONMENT="test"
+	DIR_SCRIPT="/home/pipelines/ngs_${ENVIRONMENT}/"
+	REF_GENOME="/home/doc/ref/ref_genome/ucsc.hg19.fasta"
+	MAP_QUALITY="20"
+
+  load_modules
+  log_info "Starting"
+
+	OUTPUT_DIR_SAMPLE="${OUTPUT_DIR}${SAMPLE}/"
+	create_dir $OUTPUT_DIR_SAMPLE
+
+	LOG_FILE="${OUTPUT_DIR}${SAMPLE}.log"
 
 
-# awk '$1 !~ "chrM" {print $1"\t"$2"\t"$3}' Exome9-T_S2.depth.bed > Exome9-T_S2.depth.filter.bed
-# awk '$1 !~ /\_/  {print $1"\t"$2"\t"$3}' Exome9-T_S2.depth.filter.bed > Exome9-T_S2.depth.filter2.bed
-# awk '{print $1 "\t" $2 "\t" $2+1 "\t" $3}'  Exome9-T_S2.depth.filter2.bed > Exome9-T_S2.depth.filter3.bed
-# awk '$4 >= 10 {print}'  Exome9-T_S2.depth.filter3.bed > Exome9-T_S2.depth.filter4.bed
-# wc -l Exome9-T_S2.depth.filter2.bed > Exome9-T_S2.depth.filter2.breadth
+	OUTPUT_DIR_SAMPLE_ALIGNMENT="${OUTPUT_DIR_SAMPLE}Alignment/"
+	create_dir $OUTPUT_DIR_SAMPLE_ALIGNMENT
 
-# log "#####generating uniformity calculation sample- $SAMPLE "
-# /opt/bedtools2/bin/bedtools coverage -a /home/hhadmin/exome_pipeline/01_bamQC/cre_design.bed -b ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed -mean > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
-# # /opt/python3/bin/python3 /home/hhadmin/exome_pipeline/01_bamQC/06_uniformityPlots.py  ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
-#
-# /opt/samtools19/bin/samtools view ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam | awk '{ n=length($10); print gsub(/[AaTt]/,"",$10)/n;}' > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.ATCount.txt
+
+	log_info "
+	Starting - runAlignment_Interface.sh
+	SAMPLE - $SAMPLE
+	FASTQ_DIR - $FASTQ_DIR
+	OUTPUT_DIR - $OUTPUT_DIR
+	OUTPUT_DIR_SAMPLE - $OUTPUT_DIR_SAMPLE
+	OUTPUT_DIR_SAMPLE_ALIGNMENT - $OUTPUT_DIR_SAMPLE_ALIGNMENT
+	LOG_FILE - $LOG_FILE"
+
+	run_trimmomatic
+
+  run_alignment
+
+	sort_bam
+
+	generate_alignStat
+
+  remove_duplicates
+
+	generate_bamIndex
+
+	calculate_targetCoverage
+
+	calculate_breadthCoverage
+
+}
+
+# ##############################################################################
+# run main
+# ##############################################################################
+main $*

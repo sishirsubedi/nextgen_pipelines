@@ -18,7 +18,7 @@ cat <<EOF >> /dev/stderr
  	-d DIR
  	-n NORMAL
 	-t TUMOR
-
+  -v VARIANT CALLING
 EOF
 }
 
@@ -26,7 +26,7 @@ parse_options()
 {
     IMPORT=0
 
-		while getopts "hz:d:n:t:e:" opt; do
+		while getopts "hz:d:n:t:v:e:" opt; do
 
 				case $opt in
 					h)
@@ -45,6 +45,9 @@ parse_options()
 					t)
 					TUMOR=$OPTARG
 					;;
+          v)
+  			  VC=$OPTARG
+  			  ;;
 					e)
 					ENVIRONMENT=$OPTARG
 					;;
@@ -68,8 +71,57 @@ load_modules()
 	source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
 }
 
-run_paired()
+run_aligner()
 {
+  echo "Running Single Sample Aligner only -- Exome Pipeline!"
+
+   bash ${HOME_SHELLDIR}runAlignment_Interface.sh \
+	 	 		-s   $NORMAL \
+	 	 		-f   $FASTQ_DIR  \
+	 	 		-o   $EXOME_AL_OUT
+}
+
+run_VCsingle()
+{
+ echo "Running Single Sample Exome Pipeline!"
+
+ if [ ! -f ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam ] ; then
+
+	 echo "${NORMAL}.sorted.rmdups.bam file not found"
+   echo "Running Alignment + UNpaired Variant Caller Pipeline on -- ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam"
+
+   bash ${HOME_SHELLDIR}runAlignment_Interface.sh \
+	 -s $NORMAL \
+	 -f $FASTQ_DIR  \
+	 -o $EXOME_AL_OUT
+
+
+	bash /home/pipelines/ngs_test/shell/runVCaller_interface.sh \
+  -n ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
+  -t "NONE" \
+  -v varscan-strelka-mutect \
+  -o ${EXOME_VC_OUT}
+
+else
+
+  echo "Alignment Completed:-${NORMAL}.sorted.rmdups.bam file found"
+  echo "Running UNpaired Variant Caller Pipeline on -- ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam"
+
+	bash /home/pipelines/ngs_test/shell/runVCaller_interface.sh \
+  -n ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
+  -t "NONE" \
+  -v varscan-strelka-mutect \
+  -o ${EXOME_VC_OUT}
+
+fi
+
+}
+
+run_VCpaired()
+{
+
+  echo "Running NORMAL/TUMOR Pair Exome Pipeline!"
+
 	/opt/parallel/bin/parallel "bash ${HOME_SHELLDIR}runAlignment_Interface.sh \
 	    -s   {}  \
 	    -f   $FASTQ_DIR  \
@@ -92,26 +144,6 @@ run_paired()
 			-o ${EXOME_VC_OUT}
 }
 
-run_single()
-{
- echo "Running Single Sample Exome Pipeline!"
-
- if [ ! -f ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam ] ; then
-	 echo "Error: ${NORMAL}.sorted.rmdups.bam file not found"
-	 bash ${HOME_SHELLDIR}runAlignment_Interface.sh \
-	 	 		-s   $NORMAL \
-	 	 		-f   $FASTQ_DIR  \
-	 	 		-o   $EXOME_AL_OUT
-else
-	echo "Running UNpaired VC on -- ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam"
-
-	bash /home/pipelines/ngs_test/shell/runVCallerUNpaired_interface.sh \
-	 	 -s ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
-	 	 -v varscan-strelka-mutect \
-	 	 -o ${EXOME_VC_UP_OUT}
-fi
-
-}
 
 
 # ##############################################################################
@@ -132,6 +164,8 @@ main()
 	# ##########################################################################
 
   load_modules
+
+  log_info "Starting"
 
 	FASTQ_DIR="/home/nextseq/${DIR}/out1/"
 	EXOME_OUT="/home/environments/ngs_${ENVIRONMENT}/exomeAnalysis/${DIR}/"
@@ -155,29 +189,44 @@ main()
 
 	##############################################################################
 	echo "Parameters are-
-	$DIR
-	$NORMAL
-	$TUMOR
-	$ENVIRONMENT
-	$FASTQ_DIR
-	$EXOME_OUT
+Directory-$DIR
+Normal Sample-$NORMAL
+Tumor Sample-$TUMOR
+Variant Calling-$VC
+Environment- $ENVIRONMENT
+Fastq Directory-$FASTQ_DIR
+Exome Analysis Directory-$EXOME_OUT
 	$EXOME_AL_OUT
 	$EXOME_VC_OUT
 	$EXOME_VC_UP_OUT
-	$INSTRUMENT
-	$ASSAY
-	$HOME
-	$HOME_RUNDIR
-	$HOME_SHELLDIR
-	$DB"
+Instrument-$INSTRUMENT
+Assay-$ASSAY
+Home-$HOME
+Home Run Files-$HOME_RUNDIR
+Home Shell Files-$HOME_SHELLDIR
+Database-$DB"
 	##############################################################################
 
 
-	if [[ $TUMOR == "NONE" ]]; then
-  	echo "Running Single Sample Exome Pipeline!"
-		run_single
-	else
-		run_paired
+	if [[ $VC == "NO"  &&  $TUMOR == "NO" ]]; then
+
+    echo "Running Single Sample Aligner only -- Exome Pipeline!"
+    run_aligner
+
+  elif [[ $VC == "YES"  &&  $TUMOR == "NO" ]]; then
+
+    echo "Running Single Sample Exome Pipeline!"
+		run_VCsingle
+
+  elif [[ $VC == "YES"  &&  $TUMOR != "NO" ]]; then
+
+    echo "Running NORMAL/TUMOR Pair Exome Pipeline!"
+    run_VCpaired
+
+  else
+
+    echo "Terminated !! Incorrect parameter for Exome Pipeline!"
+
   fi
 
 }
