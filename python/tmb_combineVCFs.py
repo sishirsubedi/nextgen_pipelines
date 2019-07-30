@@ -21,7 +21,6 @@ OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
 type=sys.argv[4]
 ############################################################
-# type="nofilter.crefilter"
 
 
 file1 = OUT_DIR+"/varscan/"+SAMPLE+".varscan."+type

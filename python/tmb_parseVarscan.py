@@ -1,17 +1,8 @@
 import sys
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
-import numpy as np
-import warnings
-warnings.filterwarnings("ignore")
-
 ##################################
 ### input variables
 ##################################
-
 SAMPLE=sys.argv[1]
 OUT_DIR=sys.argv[2]
 ENV=sys.argv[3]
@@ -22,8 +13,6 @@ TALF=sys.argv[6]
 ##################################
 ### filter parameters
 ##################################
-
-print(DEPTH,NALF,TALF)
 VARSCAN_PVAL=0.01
 NORMAL_DEPTH=int(DEPTH)
 TUMOR_DEPTH=int(DEPTH)
@@ -41,7 +30,6 @@ FDR=0.01
 ##################################S
 ### read files
 ##################################
-
 file_snp=OUT_DIR+SAMPLE+".varscan.output.snp"
 file_indel=OUT_DIR+SAMPLE+".varscan.output.indel"
 df_snp = pd.read_csv(file_snp,sep='\t')
@@ -64,7 +52,6 @@ for indx, row in df_indel.iterrows():
 df_both = pd.concat([df_snp,df_indel])
 df_both.sort_values(by=['somatic_status'],inplace=True)
 
-
 ##################################
 ### remove unwanted chr
 ##################################
@@ -79,6 +66,8 @@ df_both.drop(filter_indx, inplace=True)
 ### filter somatic
 ##################################
 df_both_pass_s0 = df_both[(df_both['somatic_status'].isin(['Somatic']) )]
+
+
 ##################################
 ### update additional columns
 ##################################
@@ -89,6 +78,12 @@ df_both_pass_s0['tumor_depth'] = df_both_pass_s0['tumor_reads1'] + df_both_pass_
 
 
 ##################################
+### raw before filter
+##################################
+# df_both_pass_s0.to_csv(OUT_DIR+"/"+SAMPLE+"_raw_before_filter."+DEPTH+"_"+NALF+"_"+TALF+".txt",sep='\t',index=False)
+
+
+##################################
 ### pval + FDR
 ##################################
 def pvalAdj(p_val_rank,total,fdr):
@@ -96,28 +91,25 @@ def pvalAdj(p_val_rank,total,fdr):
 
 df_both_pass_s0.sort_values(by=['somatic_p_value'],inplace=True)
 df_both_pass_s0.reset_index(inplace=True)
+
+# df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['somatic_p_value']<=VARSCAN_PVAL]
+
 df_both_pass_s0['somatic_p_value_rank']= [ x for x in range(1,df_both_pass_s0.shape[0]+1)]
 df_both_pass_s0['somatic_p_value_adj']= [ pvalAdj(x,df_both_pass_s0.shape[0],FDR) for x in df_both_pass_s0['somatic_p_value_rank']]
 df_both_pass_s0['somatic_p_value_adj_filter']=[1 if x[0]<x[1] else 0 for x in zip(df_both_pass_s0['somatic_p_value'], df_both_pass_s0['somatic_p_value_adj']) ]
 df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['somatic_p_value_adj_filter']==1]
 
 
-# df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['somatic_p_value']<VARSCAN_PVAL]
-
 #################################
 ## alt frequency
 #################################
 df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['normal_var_freq_percent']<NORMAL_ALT_ALLELE_FREQ]
 df_both_pass_s0 = df_both_pass_s0[df_both_pass_s0['tumor_var_freq_percent']>=TUMOR_ALT_ALLELE_FREQ]
-print('After normal var freq:'+ str(df_both_pass_s0.shape[0]))
-
 
 #################################
 ## depth
 #################################
 df_both_pass_s0 = df_both_pass_s0[ (df_both_pass_s0['normal_depth']>=NORMAL_DEPTH) & (df_both_pass_s0['tumor_depth']>=TUMOR_DEPTH) ]
-print('After depth 20x:'+ str(df_both_pass_s0.shape[0]))
-
 
 ##################################
 ### strand bias
@@ -130,10 +122,10 @@ df_both_pass_s0 = df_both_pass_s0[ ( (df_both_pass_s0['normal_reads1_plus']>=NOR
                                       (df_both_pass_s0['tumor_reads2_minus']>=TUMOR_STRAND_BIAS_2_MINUS)  ) ]
 
 # print('After strand bias:'+ str(df_both_pass_s0.shape[0]))
-# df_both_pass_s0.to_csv(OUT_DIR+"/"+SAMPLE+"_filter_final.txt",sep='\t',index=False)
-print('Filter:'+ str(df_both_pass_s0.shape[0]))
-print('Filter:snp:'+ str(df_both_pass_s0[df_both_pass_s0['group']=='snp'].shape[0]))
-print('Filter:indel:'+ str(df_both_pass_s0[df_both_pass_s0['group']=='indel'].shape[0]))
+# df_both_pass_s0.to_csv(OUT_DIR+"/"+SAMPLE+"_filter_final."+DEPTH+"_"+NALF+"_"+TALF+".txt",sep='\t',index=False)
+# print('Filter:'+ str(df_both_pass_s0.shape[0]))
+# print('Filter:snp:'+ str(df_both_pass_s0[df_both_pass_s0['group']=='snp'].shape[0]))
+# print('Filter:indel:'+ str(df_both_pass_s0[df_both_pass_s0['group']=='indel'].shape[0]))
 
 
 ##################################
@@ -146,4 +138,25 @@ for indx,row in df_both_pass_s0.iterrows():
 
 df_vcf=pd.DataFrame(vcf)
 df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
-df_vcf.to_csv(OUT_DIR+SAMPLE+".varscan."+DEPTH+"_"+NALF+"_"+TALF,sep='\t',index=False)
+
+##################################
+### filter CRE Design region
+##################################
+
+if "COLO" in SAMPLE:
+    DESIGN_FILE= "/home/hhadmin/exome_pipeline/agilentCre/cre_design.bed"
+    df_design = pd.read_csv(DESIGN_FILE,sep='\t')
+    df_design.columns=['CHROM','START','END']
+
+
+    filter=[]
+    for indx,row in df_vcf.iterrows():
+        if ( df_design[ (df_design['CHROM'] == row['CHROM']) & (df_design['START'] <= row['POS']) & (df_design['END'] >= row['POS']) ].shape[0]>=1):
+            filter.append([row['CHROM'],row['POS'],row['ID'],row['REF'],row['ALT'],row['QUAL'],row['FILTER'],row['INFO']])
+
+    df_filter=pd.DataFrame(filter)
+    df_filter.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
+    df_filter.to_csv(OUT_DIR+SAMPLE+".varscan."+DEPTH+"_"+NALF+"_"+TALF,sep='\t',index=False)
+
+else:
+    df_vcf.to_csv(OUT_DIR+SAMPLE+".varscan."+DEPTH+"_"+NALF+"_"+TALF,sep='\t',index=False)

@@ -8,16 +8,18 @@ then
   echo "-t tumor sample"
 	echo "-v Variant Calling"
 	echo "-e environment"
+	echo "-u USER"
+	echo "-p PASSWORD"
 	echo "RULE:
--v=NO   &&  -t=NONE then alignment only
--v=YES  &&  -t=NONE then unpaired variant caller
--v=YES  &&  -t=Exome then  paired variant caller"
+-v=NO   &&  -t=NO then alignment only
+-v=YES  &&  -t=NO then unpaired variant caller
+-v=YES  &&  -t=ExomeID then  paired variant caller"
 	echo "Example:
 bash /home/pipelines/ngs_test/shell/runexome.sh -d "190423_NS500761_0346_AHLVWTBGX9"  -n  "Exome14-N_S6"  -t "Exome14-T_S7"  -v YES -e test"
 	exit
 fi
 
-while getopts :d:n:t:v:e: opt; do
+while getopts :d:n:t:v:e:u:p: opt; do
 				case $opt in
         d)
   			DIR=$OPTARG
@@ -34,6 +36,12 @@ while getopts :d:n:t:v:e: opt; do
 			  e)
 				ENVIRONMENT=$OPTARG
 				;;
+				u)
+				USER=$OPTARG
+				;;
+				p)
+				PASSWORD=$OPTARG
+				;;
 				:)
 				echo "Option -$OPTARG requires an argument."
 				;;
@@ -47,7 +55,8 @@ echo " exome job submitted for"
 echo " folder - $DIR"
 echo " normal - $NORMAL"
 echo " tumor - $TUMOR"
+echo " variantcalling - $VC"
 echo " environment - $ENVIRONMENT"
+echo " environment - $USER"
 
-
-qsub -k eo -F "-d$DIR -n$NORMAL -t$TUMOR -v$VC -e$ENVIRONMENT" /home/pipelines/ngs_test/shell/exomeInterface.sh
+qsub -k eo -F "-d$DIR -n$NORMAL -t$TUMOR -v$VC -e$ENVIRONMENT -u$USER -p$PASSWORD" /home/pipelines/ngs_test/shell/exomeInterface.sh

@@ -122,7 +122,7 @@ check_db_queue()
 
        echo "$queueID;$runID;$sampleName;$coverageID;$callerID;$assay;$instrument;$ENVIRONMENT" >> ${HOME_RUN}${CURRENTDT}_ProtonQueued.samples
 
-     elif [ "$instrument" == "nextseq" ] ;then
+     elif  [ $(echo ${instrument:0:7}) == "nextseq" ] ; then
 
        if [ ! -f ${HOME_RUN}${CURRENTDT}_IlluminaQueued.samples ]; then
 
@@ -194,7 +194,7 @@ submit_sample_illumina()
 
   runFolder=$(ls -d /home/$instrument/*_"$runID"_*)
   runName=${runFolder##/home/$instrument/}
-  home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/"
+  home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/${assay}Assay/"
 
   create_dir "${home_analysis_instrument}$runName"
   create_dir "${home_analysis_instrument}${runName}/$sampleName"
@@ -203,10 +203,24 @@ submit_sample_illumina()
 
   log_info "Submitting illuminaPipelineInterface ; current sample - $queueID ; $runID ; $instrument ; $assay ; $sampleName"
 
+  # if [ $assay == "heme" ] ; then
+  #
+  #   /opt/torque/bin/qsub -d ${working_dir} -l walltime=10:00:00,nodes=1:ppn=4   \
+  #        -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+  #        ${HOME_SHELL}illuminaPipelineInterface.sh
+  #
+  # elif [ $assay == "tmb" ] ; then
+  #
+  #   /opt/torque/bin/qsub -d ${working_dir} -l  walltime=50:00:00,nodes=1:ppn=12  \
+  #        -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+  #        ${HOME_SHELL}illuminaPipelineInterface.sh
+  #
+  # fi
 
-  /opt/torque/bin/qsub -d ${working_dir}  \
-       -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
-       ${HOME_SHELL}illuminaPipelineInterface.sh
+    /opt/torque/bin/qsub -d ${working_dir}  \
+         -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+         ${HOME_SHELL}illuminaPipelineInterface.sh
+
 }
 
 process_sample_llumina()
@@ -221,9 +235,13 @@ process_sample_llumina()
   instrument="${line[6]}"
 
   log_info "current sample - $queueID ; $runID ; $instrument ; $assay ; $sampleName"
-  fastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
 
-  if [ $fastqStatus == "0" ] ; then
+  stausCheck="select pipelineStatusBcl2Fastq.status from pipelineStatusBcl2Fastq join instruments on pipelineStatusBcl2Fastq.instrumentID = instruments.instrumentID where pipelineStatusBcl2Fastq.runID='$runID' and instruments.instrumentName='$instrument'"
+  fastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "$stausCheck")
+
+  log_info "current fastqStatus - $fastqStatus, $queueID ; $runID ; $instrument ; $assay ; $sampleName"
+
+  if [ "$fastqStatus" == 0 ] ; then
 
     lockdir=${HOME_RUN}nextseq_${runID}.lock
 
@@ -231,20 +249,23 @@ process_sample_llumina()
     if mkdir "$lockdir" ; then
 
       log_info "Acquired lock for run-$runID , sample- $sampleName , lockfile- $lockdir"
-      log_info "bcl2fastq_running_now run-$runID , sample- $sampleName "
-      update_status_host "$queueID" "bcl2fastq_running_now" "$DB" "$USER"  "$PASSWORD"
+      log_info "bcl2fastq_starting_now run-$runID , sample- $sampleName "
+      update_status_host "$queueID" "bcl2fastq_starting_now" "$DB" "$USER"  "$PASSWORD"
 
-      run_bcl2fastq $USER  $PASSWORD  $DB  $DB_HOST  $runID $ENVIRONMENT
+      run_bcl2fastq $USER  $PASSWORD  $DB  $DB_HOST  $runID $instrument $ENVIRONMENT
 
       ### sleep for an hour and keep checking database if bcl2fastq for this run is completed
-      checkfastqStatus="0"
-      while [ $checkfastqStatus == "0" ]; do
+      fastqStatus_r2="0"
+      while [ "$fastqStatus_r2" == "0" ]; do
+
+          update_status_host "$queueID" "bcl2fastq_running..." "$DB" "$USER"  "$PASSWORD"
 
           sleep 1h
 
-          checkfastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "select status from pipelineStatusBcl2Fastq where runID='$runID'")
+          fastqStatus_r2=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "$stausCheck")
 
-          log_info "checking bcl2fastq status -- $checkfastqStatus, run-$runID , sample- $sampleName"
+          log_info "checking bcl2fastq status -- $fastqStatus_r2, run-$runID , sample- $sampleName"
+
 
       done
 

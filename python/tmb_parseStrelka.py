@@ -125,7 +125,7 @@ Tumor_DP_snp=getMixtureModelCutOff(df_snp['TUMOR.DP'],TUMOR_DP_ALPHA,TUMOR_DP_MU
 
 
 
-# ###filtering:
+###filtering:
 df_snp = df_snp[ df_snp['SomaticEVS']>=SomaticEVS_Cutoff_snp]
 df_snp = df_snp[ df_snp['QSS']>=QSS_Cutoff_snp]
 df_snp = df_snp[ df_snp['NORMAL.DP']>=Normal_DP_snp]
@@ -203,4 +203,25 @@ for indx,row in df_both.iterrows():
 
 df_vcf=pd.DataFrame(vcf)
 df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
-df_vcf.to_csv(OUT_DIR+SAMPLE+".strelka."+DEPTH+"_"+NALF+"_"+TALF,sep='\t',index=False)
+
+##################################
+### filter CRE Design region
+##################################
+
+if "COLO" in SAMPLE:
+    DESIGN_FILE= "/home/hhadmin/exome_pipeline/agilentCre/cre_design.bed"
+    df_design = pd.read_csv(DESIGN_FILE,sep='\t')
+    df_design.columns=['CHROM','START','END']
+
+
+    filter=[]
+    for indx,row in df_vcf.iterrows():
+        if ( df_design[ (df_design['CHROM'] == row['CHROM']) & (df_design['START'] <= row['POS']) & (df_design['END'] >= row['POS']) ].shape[0]>=1):
+            filter.append([row['CHROM'],row['POS'],row['ID'],row['REF'],row['ALT'],row['QUAL'],row['FILTER'],row['INFO']])
+
+    df_filter=pd.DataFrame(filter)
+    df_filter.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
+    df_filter.to_csv(OUT_DIR+SAMPLE+".strelka."+DEPTH+"_"+NALF+"_"+TALF,sep='\t',index=False)
+
+else:
+    df_vcf.to_csv(OUT_DIR+SAMPLE+".strelka."+DEPTH+"_"+NALF+"_"+TALF,sep='\t',index=False)

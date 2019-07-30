@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=8
+#PBS -l nodes=1
 #PBS -l walltime=99:00:00
 #PBS -q default
 #PBS -k eo
@@ -19,6 +19,9 @@ cat <<EOF >> /dev/stderr
  	-n NORMAL
 	-t TUMOR
   -v VARIANT CALLING
+  -e ENVIRONMENT
+  -u USER
+  -p PASSWORD
 EOF
 }
 
@@ -26,7 +29,7 @@ parse_options()
 {
     IMPORT=0
 
-		while getopts "hz:d:n:t:v:e:" opt; do
+		while getopts "hz:d:n:t:v:e:u:p:" opt; do
 
 				case $opt in
 					h)
@@ -51,6 +54,12 @@ parse_options()
 					e)
 					ENVIRONMENT=$OPTARG
 					;;
+          u)
+					USER=$OPTARG
+					;;
+          p)
+					PASSWORD=$OPTARG
+					;;
 					:)
 					echo "Option -$OPTARG requires an argument."
 					;;
@@ -73,45 +82,45 @@ load_modules()
 
 run_aligner()
 {
-  echo "Running Single Sample Aligner only -- Exome Pipeline!"
+  log_info "Running Single Sample Aligner only -- TMB Pipeline!"
 
    bash ${HOME_SHELLDIR}runAlignment_Interface.sh \
 	 	 		-s   $NORMAL \
 	 	 		-f   $FASTQ_DIR  \
-	 	 		-o   $EXOME_AL_OUT
+	 	 		-o   $TMB_AL_OUT
 }
 
 run_VCsingle()
 {
- echo "Running Single Sample Exome Pipeline!"
+ log_info "Running Single Sample TMB Pipeline!"
 
- if [ ! -f ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam ] ; then
+ if [ ! -f ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam ] ; then
 
-	 echo "${NORMAL}.sorted.rmdups.bam file not found"
-   echo "Running Alignment + UNpaired Variant Caller Pipeline on -- ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam"
+	 log_info "${NORMAL}.sorted.rmdups.bam file not found"
+   log_info "Running Alignment + UNpaired Variant Caller Pipeline on -- ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam"
 
    bash ${HOME_SHELLDIR}runAlignment_Interface.sh \
 	 -s $NORMAL \
 	 -f $FASTQ_DIR  \
-	 -o $EXOME_AL_OUT
+	 -o $TMB_AL_OUT
 
 
 	bash /home/pipelines/ngs_test/shell/runVCaller_interface.sh \
-  -n ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
+  -n ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
   -t "NONE" \
   -v varscan-strelka-mutect \
-  -o ${EXOME_VC_OUT}
+  -o ${TMB_VC_UP_OUT}
 
 else
 
-  echo "Alignment Completed:-${NORMAL}.sorted.rmdups.bam file found"
-  echo "Running UNpaired Variant Caller Pipeline on -- ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam"
+  log_info "Alignment Completed:-${NORMAL}.sorted.rmdups.bam file found"
+  log_info "Running UNpaired Variant Caller Pipeline on -- ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam"
 
 	bash /home/pipelines/ngs_test/shell/runVCaller_interface.sh \
-  -n ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
+  -n ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
   -t "NONE" \
   -v varscan-strelka-mutect \
-  -o ${EXOME_VC_OUT}
+  -o ${TMB_VC_UP_OUT}
 
 fi
 
@@ -120,32 +129,48 @@ fi
 run_VCpaired()
 {
 
-  echo "Running NORMAL/TUMOR Pair Exome Pipeline!"
+  log_info "Running NORMAL/TUMOR Pair TMB Pipeline!"
 
 	/opt/parallel/bin/parallel "bash ${HOME_SHELLDIR}runAlignment_Interface.sh \
 	    -s   {}  \
 	    -f   $FASTQ_DIR  \
-	    -o   $EXOME_AL_OUT " echo ::: "$NORMAL" "$TUMOR"
+	    -o   $TMB_AL_OUT " echo ::: "$NORMAL" "$TUMOR"
 
-	if [ ! -f ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam ] ; then
-		echo "Error: ${NORMAL}.sorted.rmdups.bam file not found"
+	if [ ! -f ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam ] ; then
+		log_info "Error: ${NORMAL}.sorted.rmdups.bam file not found"
 		exit
 	fi
 
-	if [ ! -f ${EXOME_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sorted.rmdups.bam ] ; then
-		echo "Error: ${TUMOR}.sorted.rmdups.bam file not found"
+	if [ ! -f ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sorted.rmdups.bam ] ; then
+		log_info "Error: ${TUMOR}.sorted.rmdups.bam file not found"
 		exit
 	fi
 
 	bash /home/pipelines/ngs_test/shell/runVCaller_interface.sh \
-	    -n ${EXOME_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
-	    -t ${EXOME_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sorted.rmdups.bam \
+	    -n ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
+	    -t ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sorted.rmdups.bam \
 	    -v varscan-strelka-mutect \
-			-o ${EXOME_VC_OUT}
+			-o ${TMB_VC_OUT}
+
+}
+
+run_dbUpdate()
+{
+
+    tmb_results="$TMB_VC_OUT${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.tmb.result"
+
+    tmb_results_statement="load data local infile '$tmb_results' into table sampleTumorMutationBurden FIELDS TERMINATED BY ',' (sampleID,TMBPair,TMBTotalVariants,TMBScore,TMBGroup)"
+    mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$tmb_results_statement"
+
 }
 
 
+get_SeqStats()
+{
 
+  /opt/python3/bin/python ${HOME}/python/getExomeSeqStat.py  "${TMB_AL_OUT}/${TUMOR}/Alignment"  "${TMB_AL_OUT}/${NORMAL}/Alignment"
+
+}
 # ##############################################################################
 # main
 # ##############################################################################
@@ -165,40 +190,49 @@ main()
 
   load_modules
 
-  log_info "Starting"
 
 	FASTQ_DIR="/home/nextseq/${DIR}/out1/"
-	EXOME_OUT="/home/environments/ngs_${ENVIRONMENT}/exomeAnalysis/${DIR}/"
+	TMB_OUT="/home/environments/ngs_${ENVIRONMENT}/exomeAnalysis/tmbAnalysis/${DIR}/"
 
-	create_dir ${EXOME_OUT}
-	EXOME_AL_OUT="${EXOME_OUT}Single/"
-	EXOME_VC_OUT="${EXOME_OUT}Paired/"
-	EXOME_VC_UP_OUT="${EXOME_OUT}UNpaired/"
+	create_dir ${TMB_OUT}
+	TMB_AL_OUT="${TMB_OUT}Single/"
+	TMB_VC_OUT="${TMB_OUT}Paired/"
+	TMB_VC_UP_OUT="${TMB_OUT}UNpaired/"
 
-	create_dir ${EXOME_AL_OUT}
-	create_dir ${EXOME_VC_OUT}
-	create_dir ${EXOME_VC_UP_OUT}
+	create_dir ${TMB_AL_OUT}
+	create_dir ${TMB_VC_OUT}
+	create_dir ${TMB_VC_UP_OUT}
 
 
 	INSTRUMENT="nextseq"
-	ASSAY="exome"
+	ASSAY="TMB"
 	HOME="/home/pipelines/ngs_${ENVIRONMENT}/"
 	HOME_RUNDIR="${HOME}run_files/"
 	HOME_SHELLDIR="${HOME}shell/"
 	DB="ngs_${ENVIRONMENT}"
+  DB_HOST="hhplabngsp01"
+
+  LOG_FILE="${TMB_OUT}${NORMAL}_${TUMOR}.log"
+
+  exec >  >(tee -a ${LOG_FILE})
+  exec 2> >(tee -a ${LOG_FILE} >&2)
+
+  log_info "Starting TMB interface"
+
+  show_pbsinfo
 
 	##############################################################################
-	echo "Parameters are-
+	log_info "Parameters are-
 Directory-$DIR
 Normal Sample-$NORMAL
 Tumor Sample-$TUMOR
 Variant Calling-$VC
 Environment- $ENVIRONMENT
 Fastq Directory-$FASTQ_DIR
-Exome Analysis Directory-$EXOME_OUT
-	$EXOME_AL_OUT
-	$EXOME_VC_OUT
-	$EXOME_VC_UP_OUT
+TMB Analysis Directory-$TMB_OUT
+	$TMB_AL_OUT
+	$TMB_VC_OUT
+	$TMB_VC_UP_OUT
 Instrument-$INSTRUMENT
 Assay-$ASSAY
 Home-$HOME
@@ -210,22 +244,23 @@ Database-$DB"
 
 	if [[ $VC == "NO"  &&  $TUMOR == "NO" ]]; then
 
-    echo "Running Single Sample Aligner only -- Exome Pipeline!"
+    log_info "Running Single Sample Aligner only -- TMB Pipeline!"
     run_aligner
 
   elif [[ $VC == "YES"  &&  $TUMOR == "NO" ]]; then
 
-    echo "Running Single Sample Exome Pipeline!"
+    log_info "Running Single Sample TMB Pipeline!"
 		run_VCsingle
 
   elif [[ $VC == "YES"  &&  $TUMOR != "NO" ]]; then
 
-    echo "Running NORMAL/TUMOR Pair Exome Pipeline!"
-    run_VCpaired
+    log_info "Running NORMAL/TUMOR Pair TMB Pipeline!"
+    # run_VCpaired
+    # run_dbUpdate
 
   else
 
-    echo "Terminated !! Incorrect parameter for Exome Pipeline!"
+    log_info "Terminated !! Incorrect parameter for TMB Pipeline!"
 
   fi
 
@@ -235,3 +270,4 @@ Database-$DB"
 # run main
 # ##############################################################################
 main $*
+TMB

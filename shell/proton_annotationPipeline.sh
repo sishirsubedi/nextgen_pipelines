@@ -1,14 +1,14 @@
 #!/bin/bash
 #===============================================================================
 #
-# FILE: illuminaPipeline.sh
+# FILE: proton_annotationPipeline.sh
 #
-#DESCRIPTION: This script is run to annonate and filter amplicon and variant files.
-# REQUIREMENTS: illuminaPipelineInterface.sh
+#DESCRIPTION: This script runs variant annotation for gene50 and neuro from
+#             proton instrument,filters amplicon and variant files.
+#             Then call script to load amplicon and variant files into the NGS database.
+# REQUIREMENTS: protonPipelineInterface.sh
 # COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
 #===============================================================================
-
-#!/bin/bash
 
 # ##############################################################################
 # # functions
@@ -22,6 +22,8 @@ cat <<EOF >> /dev/stderr
  OPTIONS:
  d - sample directory under analysis environment
  s - sampleName
+ c - coverageID
+ v - callerID
  e - environment
  q - queueID
  u - user
@@ -34,7 +36,7 @@ parse_options()
 {
     IMPORT=0
 
-		while getopts "hz:d:s:e:q:u:p:" opt ; do
+		while getopts "hz:d:s:c:v:e:q:u:p:" opt ; do
 				case $opt in
 					h)
 						 display_usage
@@ -48,6 +50,12 @@ parse_options()
 						;;
 					s)
 						SAMPLENAME=$OPTARG
+						;;
+					c)
+						COVERAGEID=$OPTARG
+						;;
+					v)
+						CALLERID=$OPTARG
 						;;
 				  e)
 				    ENVIRONMENT=$OPTARG
@@ -80,60 +88,69 @@ load_modules()
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_vep.sh
 }
 
+split_protonVCF()
+{
+	python ${HOME_PYTHON}splitVcf.py \
+				-I ${HOME}${CALLERID}/TSVC_variants.filter.vcf \
+				-f FAO,FDP,AF \
+				-o ${HOME}${CALLERID}/TSVC_variants.filter.split.vcf
+}
+
 run_vep()
 {
 	log_info "Running VEP"
 
-  # vep_83 "${HOME}variantAnalysis/${SAMPLENAME}.filter.vcf"  "${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf"
+  # vep_83 "${HOME}${CALLERID}/TSVC_variants.filter.split.vcf"  "${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf"
+  vep_94_panel "${HOME}${CALLERID}/TSVC_variants.filter.split.vcf"  "${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf"
 
-  vep_94_panel "${HOME}variantAnalysis/${SAMPLENAME}.filter.vcf"  "${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf"
+  if [ ! -f "${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf" ] ; then
 
-  log_info "Completed VEP"
+    log_error "ERROR:VEP output file not found"
+    update_status "$QUEUEID" "ERROR:VEP" "$DB" "$USER"  "$PASSWORD"
+    exit
+
+  else
+
+    log_info "Completed VEP"
+
+  fi
 }
 
 parse_vep()
 {
-  log_info "Parse VEP"
+  log_info "Parsing VEP results"
 
 	python ${HOME_PYTHON}parseVEP_v2.py \
-					parseIlluminaNextseq   \
-					-I ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf\
-					-o ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf
+					parseIonNewVarView \
+					-I ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf \
+					-o ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt
+
 }
 
 filter_vep()
 {
-  log_info "Filtering VEP variants (High/Moderate/>100)"
+	log_info "Filtering VEP variants (High/Moderate/>100)"
 
   sample_ID=$(grep "^#CHROM" ${HOME}${CALLERID}/TSVC_variants.filter.vcf |cut -f 10)
 
   shopt -s nocasematch
   if [[ $sample_ID =~ horizon ]]
 	then
-		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf \
-		> ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.filter2.vcf
+		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt \
+		> ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter2.txt
 	else
-		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf \
-		> ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.filter2.vcf
+		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt \
+		> ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter2.txt
 	fi
 
 }
 
 filter_amplicon()
 {
+  log_info "Filtering <100 depth amplicons"
 
-  log_info "Filter amplicon"
-
- sampleCol=$(head -n 1  ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.txt | awk -F"\t" '{print NF; exit}')
-
-	if [ $sampleCol != "2" ]
-		then
-			echo "amplicon info not found in amplicon file for sample:$SAMPLENAME"
-	fi
-
-	cut -f 1,$sampleCol ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.txt > ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.filter2.txt
-	awk '$2 < 100' ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.filter2.txt > ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.filter2.lessThan100.txt
-
+	awk -F'\t' -v OFS='\t' '{if($10 < 100) print $4,$10}' ${HOME}${COVERAGEID}/amplicon.filter.txt \
+	> ${HOME}${COVERAGEID}/amplicon.lessThan100.txt
 }
 
 update_db()
@@ -141,7 +158,7 @@ update_db()
 
   log_info "Updating Database"
 
-  bash ${HOME_SHELL}runDBUpdate.sh -d $HOME -s $SAMPLENAME -c "-" -v "-" -q $QUEUEID -e $ENVIRONMENT -u $USER -p $PASSWORD
+  bash ${HOME_SHELL}runDBUpdate.sh -d $HOME -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -q $QUEUEID -e $ENVIRONMENT -u $USER -p $PASSWORD
 
 }
 
@@ -161,22 +178,27 @@ main()
 		############################################################################
 		# initialize variables
 		############################################################################
-
     load_modules
 
 		HOME_PYTHON="/home/pipelines/ngs_${ENVIRONMENT}/python/"
 		HOME_SHELL="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 		DB="ngs_${ENVIRONMENT}"
 
-		log_info " Running illumina pipeline for :
-		dir : $HOME
+		log_info " Running proton pipeline for :
+		directory : $HOME
 		sampleName : $SAMPLENAME
+		coverageID : $COVERAGEID
+		callerID : $CALLERID
 		environment : $ENVIRONMENT
 		queueID : $QUEUEID "
 
+    ## normalize variants generated by the ion proton instrument before annotation
+		split_protonVCF
 
     update_status "$QUEUEID" "RunningVEP" "$DB" "$USER"  "$PASSWORD"
-		run_vep
+
+    run_vep
+
     update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD"
 
 		parse_vep
@@ -190,6 +212,7 @@ main()
 		update_db
 
 }
+
 
 # ##############################################################################
 # run main

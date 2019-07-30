@@ -3,7 +3,6 @@
 # ##############################################################################
 # # functions
 # ##############################################################################
-
 display_usage()
 {
 cat <<EOF >> /dev/stderr
@@ -22,7 +21,7 @@ parse_options()
 {
     IMPORT=0
 
-		while getopts "hz:s:f:o:" opt; do
+		while getopts "hz:s:f:o:e:q:u:p:" opt; do
 
 				case $opt in
 					h)
@@ -41,6 +40,18 @@ parse_options()
 					o)
 					OUTPUT_DIR=$OPTARG
 					;;
+          e)
+          ENVIRONMENT=$OPTARG
+          ;;
+          q)
+          QUEUEID=$OPTARG
+          ;;
+          u)
+          USER=$OPTARG
+          ;;
+          p)
+          PASSWORD=$OPTARG
+          ;;
 					:)
 					echo "Option -$OPTARG requires an argument."
 					;;
@@ -63,10 +74,10 @@ load_modules()
 
 run_trimmomatic()
 {
-	log "Running Trimmomatic: Removing sequences < Q20 sample- $SAMPLE"
+	log_info "Running Trimmomatic: Removing sequences < Q20 sample- $SAMPLE"
 	trimmomatic="java -jar /opt/trimmomatic/Trimmomatic-0.33/trimmomatic-0.33.jar PE -phred33 -threads 8 \
-	${FASTQ_DIR}${SAMPLE}_R1_001.fastq.gz \
-	${FASTQ_DIR}${SAMPLE}_R2_001.fastq.gz \
+	${FASTQ_DIR}${SAMPLE}_S*_R1_001.fastq.gz \
+	${FASTQ_DIR}${SAMPLE}_S*_R2_001.fastq.gz \
 	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
 	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_unpaired_R1_001.fastq.gz \
 	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R2_001.fastq.gz \
@@ -80,8 +91,8 @@ run_trimmomatic()
 
 run_alignment()
 {
-	log "Running bwa mem aligner: $SAMPLE"
-	bash ${DIR_SCRIPT}shell/bwaAlign_exome.sh  $SAMPLE  \
+	log_info "Running bwa mem aligner: $SAMPLE"
+	bash ${DIR_SCRIPT}shell/tmb_alignment.sh  $SAMPLE  \
 	$REF_GENOME  \
 	$MAP_QUALITY \
 	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \
@@ -92,7 +103,7 @@ run_alignment()
 
 sort_bam()
 {
-log "Generating sorted bam by coordinate sample- $SAMPLE"
+log_info "Generating sorted bam by coordinate sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar SortSam \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.bam  \
           O=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam  \
@@ -101,7 +112,7 @@ java -jar /opt/picard2/picard.jar SortSam \
 
 generate_alignStat()
 {
-log "Generating alignment stat sample- $SAMPLE"
+log_info "Generating alignment stat sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar CollectAlignmentSummaryMetrics \
           R=$REF_GENOME \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam \
@@ -110,7 +121,7 @@ java -jar /opt/picard2/picard.jar CollectAlignmentSummaryMetrics \
 
 remove_duplicates()
 {
-log "Removing duplicates sample- $SAMPLE "
+log_info "Removing duplicates sample- $SAMPLE "
 java -jar /opt/picard2/picard.jar MarkDuplicates \
           REMOVE_DUPLICATES=true \
           INPUT=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam \
@@ -120,14 +131,14 @@ java -jar /opt/picard2/picard.jar MarkDuplicates \
 
 generate_bamIndex()
 {
-log "Generating bam index sample- $SAMPLE"
+log_info "Generating bam index sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar BuildBamIndex \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam
 }
 
 calculate_targetCoverage()
 {
-log "Generating CalculateHsMetrics sample- $SAMPLE "
+log_info "Generating CalculateHsMetrics sample- $SAMPLE "
 # # java -jar /opt/picard/picard-tools-1.134/picard.jar BedToIntervalList  I=cre_v1_design.bed O=/home/hhadmin/exome_pipeline/01_bamQC/cre_v1_design_bed.interval_list SD=/doc/ref/ref_genome/ucsc.hg19.dict
 java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
           I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam  \
@@ -146,7 +157,7 @@ awk '{ if ( ( $1 !~ "chrM") && ( $1 !~ /\_/  ) && ( $3 >= 10) ) {print $1 "\t" $
 
 calculate_uniformity()
 {
-log "#####generating uniformity calculation sample- $SAMPLE "
+log_info "#####generating uniformity calculation sample- $SAMPLE "
 /opt/bedtools2/bin/bedtools coverage -a /home/hhadmin/exome_pipeline/01_bamQC/cre_design.bed -b ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed -mean > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
 # /opt/python3/bin/python3 /home/hhadmin/exome_pipeline/01_bamQC/06_uniformityPlots.py  ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
 
@@ -165,21 +176,22 @@ main()
 			exit 1
 	fi
 
-
-
-	ENVIRONMENT="test"
 	DIR_SCRIPT="/home/pipelines/ngs_${ENVIRONMENT}/"
 	REF_GENOME="/home/doc/ref/ref_genome/ucsc.hg19.fasta"
 	MAP_QUALITY="20"
 
   load_modules
-  log_info "Starting"
 
 	OUTPUT_DIR_SAMPLE="${OUTPUT_DIR}${SAMPLE}/"
 	create_dir $OUTPUT_DIR_SAMPLE
 
 	LOG_FILE="${OUTPUT_DIR}${SAMPLE}.log"
 
+
+  exec >  >(tee -a ${LOG_FILE})
+  exec 2> >(tee -a ${LOG_FILE} >&2)
+
+  log_info "Starting alignment"
 
 	OUTPUT_DIR_SAMPLE_ALIGNMENT="${OUTPUT_DIR_SAMPLE}Alignment/"
 	create_dir $OUTPUT_DIR_SAMPLE_ALIGNMENT
@@ -192,7 +204,7 @@ main()
 	OUTPUT_DIR - $OUTPUT_DIR
 	OUTPUT_DIR_SAMPLE - $OUTPUT_DIR_SAMPLE
 	OUTPUT_DIR_SAMPLE_ALIGNMENT - $OUTPUT_DIR_SAMPLE_ALIGNMENT
-	LOG_FILE - $LOG_FILE"
+	LOG_FILE - $LOG_FILE "
 
 	run_trimmomatic
 

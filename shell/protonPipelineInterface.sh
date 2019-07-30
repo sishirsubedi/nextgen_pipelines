@@ -145,7 +145,7 @@ prep_gene50()
 run_protonPipeline()
 {
 
-  bash ${HOME_SHELLDIR}protonPipeline.sh -d $HOME \
+  bash ${HOME_SHELLDIR}proton_annotationPipeline.sh -d $HOME \
         -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
 
 }
@@ -211,7 +211,7 @@ main()
 
     log_info "Preparation for $ASSAY assay completed."
 
-    update_status "$QUEUEID" "Started" "$DB" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "started" "$DB" "$USER"  "$PASSWORD"
 
     run_protonPipeline
 }

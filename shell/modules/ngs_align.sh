@@ -40,7 +40,7 @@ heme_bwaAlign()
 }
 
 
-exome_bwaAlign()
+tmb_bwaAlign()
 {
 
   SAMPLE=$1

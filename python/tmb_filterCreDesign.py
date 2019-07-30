@@ -13,12 +13,9 @@ ENV=sys.argv[3]
 refstd=OUT_DIR+SAMPLE
 df_ref = pd.read_csv(refstd,sep='\t')
 
-
-design= "/home/hhadmin/exome_pipeline/agilentCre/cre_design.bed"
-df_design = pd.read_csv(design,sep='\t')
+DESIGN_FILE= "/home/hhadmin/exome_pipeline/agilentCre/cre_design.bed"
+df_design = pd.read_csv(DESIGN_FILE,sep='\t')
 df_design.columns=['CHROM','START','END']
-
-
 
 
 filter=[]
