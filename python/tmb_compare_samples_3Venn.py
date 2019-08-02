@@ -75,8 +75,18 @@ unq_clinvar = df_join[(df_join[sample1]==0) & (df_join[sample2]==1) & (df_join[s
 unq_gnomad = df_join[(df_join[sample1]==0) & (df_join[sample2]==0) & (df_join[sample3]==1)].shape[0]
 unknown = total - all_3- all_2_cosmic_clinvar - all_2_cosmic_gnomad - all_2_clinvar_gnomad - unq_cosmic - unq_clinvar - unq_gnomad
 
+outfile=outdir+sample+'_'+sample1+'_'+sample2+'_'+sample3+'_'+type
+
 plt.figure(num=None, figsize=(10, 8), dpi=80, facecolor='w', edgecolor='k')
 out = venn3(subsets = (unq_cosmic,unq_clinvar, all_2_cosmic_clinvar, unq_gnomad,all_2_cosmic_gnomad,all_2_clinvar_gnomad,all_3), \
     set_labels = (sample1, sample2, sample3))
-plt.savefig(outdir+sample+'_'+sample1+'_'+'_'+sample2+'_'+'_'+sample3+'_'+type+'_3venn')
+plt.savefig(outfile+'_3venn')
 plt.close()
+
+with open(outfile+'.variants_results', 'w') as f:
+    f.write("#callers,variants"+'\n')
+    f.write("varscan-strelka,"+str(all_2_cosmic_clinvar)+'\n')
+    f.write("varscan-mutect,"+str(all_2_cosmic_gnomad)+'\n')
+    f.write("mutect-strelka,"+str(all_2_clinvar_gnomad)+'\n')
+    f.write("varscan-strelka-mutect,"+str(all_3)+'\n')
+    f.close()

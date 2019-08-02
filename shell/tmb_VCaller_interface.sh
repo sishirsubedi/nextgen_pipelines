@@ -116,20 +116,17 @@ run_pairedVC()
 
 		create_dir ${SAMPLE_DIR}/${v_caller}
 
-		if [[ "$v_caller" == "varscan" ]];then
-			log_info "Starting : " $v_caller
-			bash ${DIR_SCRIPT}shell/tmb_VCaller_varscan.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENVIRONMENT  $DEPTH  $NALF  $TALF
-		elif [[ "$v_caller" == "strelka" ]]; then
-			log_info "Starting : " $v_caller
-			bash ${DIR_SCRIPT}shell/tmb_VCaller_strelka.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENVIRONMENT $DEPTH $NALF $TALF
-		elif [[ "$v_caller" == "mutect" ]]; then
-			log_info "Starting : " $v_caller
-			bash ${DIR_SCRIPT}shell/tmb_VCaller_mutect.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENVIRONMENT $DEPTH $NALF $TALF
-	  fi
+		log_info "Starting : " $v_caller
+
+    ### run vc
+    # bash ${DIR_SCRIPT}shell/tmb_VCaller_${v_caller}.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENVIRONMENT  $DEPTH  $NALF $TALF
+
+    ## parse vc output
+    /opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_parse_${v_caller}.py  "$SAMPLE"  "${SAMPLE_DIR}/${v_caller}/"  "$ENV" "$DEPTH" "$NALF" "$TALF"
 
 	done
 
-  # # compare all three variants files
+  # compare all three variants files
 	/opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_compare_samples_3Venn.py   \
 	${SAMPLE_DIR}/varscan/${SAMPLE}.varscan.${DEPTH}_${NALF}_${TALF}  \
 	${SAMPLE_DIR}/strelka/${SAMPLE}.strelka.${DEPTH}_${NALF}_${TALF} \
@@ -137,27 +134,23 @@ run_pairedVC()
 	${SAMPLE_DIR}/ "${DEPTH}_${NALF}_${TALF}"
 
 
-
 	# # #### combine vcfs from EACH variant caller
 	/opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENVIRONMENT"  "${DEPTH}_${NALF}_${TALF}"
-  #
-  #
+
+
   ###### run VEP
   update_status "$QUEUEID" "RunningVEP" "$DB" "$USER"  "$PASSWORD"
 
 	tail -n +2 "${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.${DEPTH}_${NALF}_${TALF}" > ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}
 
   log_info  "running VEP"
-  #
-  # vep_94_tmb \
-  # ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF} \
-  # ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}.vep \
-  #
-  #
-  # update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD"
-  #
-	# ##### FILTER vcfs from all variant callers
-	# /opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_parseVEP.py  "$SAMPLEID" "$SAMPLE"  "$SAMPLE_DIR"  "$ENVIRONMENT"  "${DEPTH}_${NALF}_${TALF}"
+
+  vep_94_tmb ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}   ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}.vep
+
+  update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD"
+
+	##### FILTER vcfs from all variant callers
+	/opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_parse_vep.py  "$SAMPLEID" "$SAMPLE"  "$SAMPLE_DIR"  "$ENVIRONMENT"  "${DEPTH}_${NALF}_${TALF}"
 
 }
 

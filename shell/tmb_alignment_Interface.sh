@@ -70,6 +70,7 @@ parse_options()
 load_modules()
 {
 	source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+  source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_align.sh
 }
 
 run_trimmomatic()
@@ -92,7 +93,8 @@ run_trimmomatic()
 run_alignment()
 {
 	log_info "Running bwa mem aligner: $SAMPLE"
-	bash ${DIR_SCRIPT}shell/tmb_alignment.sh  $SAMPLE  \
+
+  tmb_bwaAlign $SAMPLE  \
 	$REF_GENOME  \
 	$MAP_QUALITY \
 	${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}_filt_paired_R1_001.fastq.gz \

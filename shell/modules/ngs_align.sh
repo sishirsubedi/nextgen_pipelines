@@ -1,8 +1,4 @@
 #!/bin/bash
-load_modules()
-{
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
-}
 
 heme_bwaAlign()
 {
@@ -52,7 +48,7 @@ tmb_bwaAlign()
   LOG_FILE=$7
 
 
-  log_info "Starting BWA alignment and generating bam file for:
+  echo "Starting BWA alignment and generating bam file for:
   SAMPLE - $SAMPLE
   REF - $REF
   FASTQ1 - $FASTQ1

@@ -9,7 +9,7 @@
 # COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
 #===============================================================================
 
-#PBS -l nodes=1:ppn=10
+#PBS -l nodes=1:ppn=2
 #PBS -l walltime=99:00:00
 #PBS -q default
 #PBS Error_Path=${PBS_JOBNAME}.err
@@ -232,15 +232,8 @@ tmb_run_Alignment_paired()
 
 }
 
-tmb_generate_Alignment_stats()
-{
-	/opt/python3/bin/python3   ${HOME_PYTHONDIR}tmb_getSeqStat.py \
-        "${TMB_AL_OUT}${TUMOR}/Alignment/"      "$TUMOR"  \
-        "${TMB_AL_OUT}${NORMAL}/Alignment/"      "$NORMAL"  \
-        "${TMB_AL_OUT}${TUMOR}/"
-}
 
-tmb_run_Variant_Caller_paired()
+tmb_run_variant_caller_paired()
 {
 	if [ ! -f ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam ] ; then
 		log_info "Error: ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam file not found"
@@ -254,7 +247,7 @@ tmb_run_Variant_Caller_paired()
 
   update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
 
-	bash /home/pipelines/ngs_test/shell/tmb_VCaller_interface.sh \
+	bash /home/pipelines/ngs_${ENVIRONMENT}/shell/tmb_VCaller_interface.sh \
 	    -n ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
 	    -t ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sorted.rmdups.bam \
 	    -v varscan-strelka-mutect \
@@ -267,13 +260,27 @@ tmb_run_Variant_Caller_paired()
 
 }
 
-tmb_generate_misl_stats()
+tmb_generate_stats()
 {
+
+  /opt/python3/bin/python3   ${HOME_PYTHONDIR}tmb_getSeqStat.py \
+        "${TMB_AL_OUT}${TUMOR}/Alignment/"      "$TUMOR"  \
+        "${TMB_AL_OUT}${NORMAL}/Alignment/"      "$NORMAL"  \
+        "${TMB_VC_OUT}${TUMOR}_${NORMAL}/"
+
+
   wc -l /home/environments/ngs_${ENVIRONMENT}/nextseqAnalysis/tmbAssay/${RUNNAME}/${TUMOR}/Single/${TUMOR}/Alignment/${TUMOR}.depth.filter2.exon_intersect.bed > ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}.breadth_coverage
 
   /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_vcQC.py \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.variantcallers.combinev2.*.vep.parse.txt \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.titv_ratio
+
+  /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_final_result.py \
+  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.seq_stats   \
+  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}.breadth_coverage \
+  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}_varscan_strelka_mutect_10_10_10.variants_results  \
+  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.tmb_result \
+  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.final_result.txt
 }
 
 tmb_run_dbUpdate()
@@ -281,7 +288,7 @@ tmb_run_dbUpdate()
 
     update_status "$QUEUEID" "UpdatingDatabase" "$DB" "$USER"  "$PASSWORD"
 
-    tmb_results="$TMB_VC_OUT${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.tmb.result"
+    tmb_results="$TMB_VC_OUT${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.tmb_result"
 
     tmb_results_statement="load data local infile '$tmb_results' into table sampleTumorMutationBurden FIELDS TERMINATED BY ',' (sampleID,TMBPair,TMBTotalVariants,TMBScore,TMBGroup)"
     mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$tmb_results_statement"
@@ -424,11 +431,9 @@ main()
 
     # tmb_run_Alignment_paired
 
-    tmb_generate_Alignment_stats
+    tmb_run_variant_caller_paired
 
-    tmb_run_Variant_Caller_paired
-
-    # tmb_generate_misl_stats
+    tmb_generate_stats
 
     # tmb_run_dbUpdate
 

@@ -41,8 +41,8 @@ DIR2=sys.argv[3]
 Normal=sys.argv[4]
 OUT_DIR=sys.argv[5]
 
-df_stats = pd.DataFrame({'Metrics':['Total Reads', 'Q20', 'Duplicate', 'Coverage', 'Coverage-2X','Coverage-10X','Coverage-100X']})
+df_stats = pd.DataFrame({'#Metrics':['Total-Reads', 'Q20', 'Duplicate', 'Coverage', 'Coverage-2X','Coverage-10X','Coverage-100X']})
 df_stats['Tumor']=getstat(DIR,Tumor)
 df_stats['Normal']=getstat(DIR2,Normal)
 
-df_stats.to_csv(OUT_DIR+Tumor+"_"+Normal+"_SeqStats.csv",index=False)
+df_stats.to_csv(OUT_DIR+Tumor+"_"+Normal+".seq_stats",index=False)
