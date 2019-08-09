@@ -119,7 +119,7 @@ run_pairedVC()
 		log_info "Starting : " $v_caller
 
     ### run vc
-    # bash ${DIR_SCRIPT}shell/tmb_VCaller_${v_caller}.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENVIRONMENT  $DEPTH  $NALF $TALF
+    bash ${DIR_SCRIPT}shell/tmb_VCaller_${v_caller}.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENVIRONMENT  $DEPTH  $NALF $TALF
 
     ## parse vc output
     /opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_parse_${v_caller}.py  "$SAMPLE"  "${SAMPLE_DIR}/${v_caller}/"  "$ENV" "$DEPTH" "$NALF" "$TALF"

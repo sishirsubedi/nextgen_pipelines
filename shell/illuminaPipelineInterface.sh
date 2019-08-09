@@ -9,7 +9,7 @@
 # COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
 #===============================================================================
 
-#PBS -l nodes=1:ppn=2
+#PBS -l nodes=1:ppn=10
 #PBS -l walltime=99:00:00
 #PBS -q default
 #PBS Error_Path=${PBS_JOBNAME}.err
@@ -293,6 +293,13 @@ tmb_run_dbUpdate()
     tmb_results_statement="load data local infile '$tmb_results' into table sampleTumorMutationBurden FIELDS TERMINATED BY ',' (sampleID,TMBPair,TMBTotalVariants,TMBScore,TMBGroup)"
     mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$tmb_results_statement"
 
+    /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_qc_plots.py \
+    -i "$QUEUEID" \
+    -d "$DB_HOST" \
+    -e "$ENVIRONMENT"  \
+    -u "$USER"  \
+    -p "$PASSWORD"
+
     update_status "$QUEUEID" "pipelineCompleted" "$DB" "$USER"  "$PASSWORD"
 
 }
@@ -429,13 +436,13 @@ main()
 
     ##############################################################################
 
-    # tmb_run_Alignment_paired
+    tmb_run_Alignment_paired
 
     tmb_run_variant_caller_paired
 
     tmb_generate_stats
 
-    # tmb_run_dbUpdate
+    tmb_run_dbUpdate
 
     fi
 }

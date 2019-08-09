@@ -88,7 +88,7 @@ main()
   /usr/local/bin/bcl2fastq --no-lane-splitting --runfolder-dir $DIR --output-dir "${DIR}/out1" -d 10 -p 10
   wait $!
 
-  updatestatement="update pipelineStatusBcl2Fastq join instruments on pipelineStatusBcl2Fastq.instrumentID = instruments.instrumentID set status=1 where  where pipelineStatusBcl2Fastq.runID='$runID' and instruments.instrumentName='$instrument'"
+  updatestatement="update pipelineStatusBcl2Fastq join instruments on pipelineStatusBcl2Fastq.instrumentID = instruments.instrumentID set status=1 where pipelineStatusBcl2Fastq.runID='$RUNID' and instruments.instrumentName='$INSTRUMENT'"
   mysql --host=$DB_HOST --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
 
 }
