@@ -16,9 +16,11 @@ def get_dupinfo (f1,res):
 
 def get_seqinfo (f1,res):
     df = pd.read_csv(f1,skiprows=6,sep='\t',nrows=1)
+    res.append(str(int(df["TOTAL_READS"].values[0])))
     res.append(str(int(df["MEAN_TARGET_COVERAGE"].values[0]))+"x")
-    res.append(str(int(df["PCT_TARGET_BASES_2X"].values[0]* 100))+"%")
     res.append(str(int(df["PCT_TARGET_BASES_10X"].values[0]* 100))+"%")
+    res.append(str(int(df["PCT_TARGET_BASES_20X"].values[0]* 100))+"%")
+    res.append(str(int(df["PCT_TARGET_BASES_50X"].values[0]* 100))+"%")
     res.append(str(int(df["PCT_TARGET_BASES_100X"].values[0]* 100))+"%")
 
 def getstat(DIR,SAMPLE):
@@ -41,7 +43,7 @@ DIR2=sys.argv[3]
 Normal=sys.argv[4]
 OUT_DIR=sys.argv[5]
 
-df_stats = pd.DataFrame({'#Metrics':['Total-Reads', 'Q20', 'Duplicate', 'Coverage', 'Coverage-2X','Coverage-10X','Coverage-100X']})
+df_stats = pd.DataFrame({'#Metrics':['Total-Reads', 'Q20', 'Duplicate', 'Total-Reads-ADup','Coverage', 'Coverage-10X','Coverage-20X','Coverage-50X','Coverage-100X']})
 df_stats['Tumor']=getstat(DIR,Tumor)
 df_stats['Normal']=getstat(DIR2,Normal)
 

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 def get_seq_stats (f1,f2):
-    cols = ["Total-Reads","Q20","Duplicate","Coverage","Coverage-2X","Coverage-10X","Coverage-100X"]
+    cols = ["Total-Reads","Q20","Duplicate","Total-Reads-ADup","Coverage","Coverage-10X","Coverage-20X","Coverage-50X","Coverage-100X"]
     in_file = open(f1,"r")
     out_file = open(f2,"a")
     for line in in_file:

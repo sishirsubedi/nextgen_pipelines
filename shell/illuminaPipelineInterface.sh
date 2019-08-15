@@ -271,9 +271,9 @@ tmb_generate_stats()
 
   wc -l /home/environments/ngs_${ENVIRONMENT}/nextseqAnalysis/tmbAssay/${RUNNAME}/${TUMOR}/Single/${TUMOR}/Alignment/${TUMOR}.depth.filter2.exon_intersect.bed > ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}.breadth_coverage
 
-  /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_vcQC.py \
-  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.variantcallers.combinev2.*.vep.parse.txt \
-  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.titv_ratio
+  # /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_vcQC.py \
+  # ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.variantcallers.combinev2.*.vep.parse.txt \
+  # ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.titv_ratio
 
   /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_final_result.py \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.seq_stats   \
@@ -442,7 +442,7 @@ main()
 
     tmb_generate_stats
 
-    tmb_run_dbUpdate
+    # tmb_run_dbUpdate
 
     fi
 }
