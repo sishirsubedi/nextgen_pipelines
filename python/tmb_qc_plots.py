@@ -78,11 +78,15 @@ if len(sys.argv) > 1:
     connection = getConnection(db_host,db,user,psswd)
     sample = getSampleInfo(connection,sampleID)
 
-    if "COLO" in sample.sampleName:
+    if "COLO" in str(sample.sampleName):
         scores = updateControlTMBTrend(connection)
-        sns.lineplot(x=range(len(scores)) ,y=scores, marker="o",color='r',label="TMB Scores")
+        minscore= np.min(scores) - 1.0
+        maxscore= np.max(scores) + 1.0
+        plt.ylim(minscore,maxscore)
+        sns.lineplot(x=range(1,len(scores)+1) ,y=scores, marker="o",color='r',label="TMB Scores")
         plt.title("TMB Assay Control(COLO829) Trendline, Total:"+str(len(scores)))
-        plt.xlabel("Runs")
+        plt.ylabel("TMB Score")
+        plt.xlabel("Run Number")
         plt.savefig("/home/environments/"+db+"/assayCommonFiles/tmbAssay/TMB_ControlCOLO829_Scores.png")
         plt.close()
 

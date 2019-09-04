@@ -4,15 +4,39 @@ import pandas as pd
 import numpy as np
 
 def get_seq_stats (f1,f2):
-    cols = ["Total-Reads","Q20","Duplicate","Total-Reads-ADup","Coverage","Coverage-10X","Coverage-20X","Coverage-50X","Coverage-100X"]
+    cols = ["Total-Reads","Q20", "Total-Reads-AQC", "Duplicate", "Total-Reads-ADup","Coverage", "Target-Coverage", "Coverage-10X","Coverage-20X","Coverage-50X","Coverage-100X"]
     in_file = open(f1,"r")
     out_file = open(f2,"a")
+    tumor_total_reads = 0
+    normal_total_reads = 0
     for line in in_file:
         if line[0] != "#":
             vals = line.split(',')
             if vals[0] in cols:
-                out_file.write("Tumor_"+vals[0]+","+vals[1]+'\n')
-                out_file.write("Normal_"+vals[0]+","+vals[2]+'\n')
+
+                if vals[0] == "Total-Reads":
+
+                    tumor_total_reads = int(vals[1])
+                    normal_total_reads = int(vals[2])
+
+                    out_file.write("Tumor_"+vals[0]+","+vals[1]+'\n')
+                    out_file.write("Normal_"+vals[0]+","+vals[2]+'\n')
+
+                elif vals[0] == "Total-Reads-ADup":
+
+                    tumor_total_reads_adup = int(vals[1])
+                    normal_total_reads_adup = int(vals[2])
+
+                    tumor_reads_remain = (tumor_total_reads_adup/tumor_total_reads) * 100
+                    normal_reads_remain = (normal_total_reads_adup/normal_total_reads) * 100
+
+                    out_file.write("Tumor_"+vals[0]+","+str(int(tumor_reads_remain))+'%\n')
+                    out_file.write("Normal_"+vals[0]+","+str(int(normal_reads_remain))+'%\n')
+
+                else:
+                    out_file.write("Tumor_"+vals[0]+","+vals[1]+'\n')
+                    out_file.write("Normal_"+vals[0]+","+vals[2]+'\n')
+
     in_file.close()
     out_file.close()
 
@@ -22,7 +46,7 @@ def get_breadth_coverage (f1,f2):
     out_file = open(f2,"a")
     for line in in_file:
         vals = line.split(' ')
-        out_file.write("Tumor_Breadth-Coverage"+","+vals[0]+'\n')
+        out_file.write("Tumor_Breadth-Coverage"+","+ str(round((int(vals[0])/1000000),2))+' mb \n')
     in_file.close()
     out_file.close()
 

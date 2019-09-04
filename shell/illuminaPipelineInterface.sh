@@ -294,7 +294,7 @@ tmb_run_dbUpdate()
     mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$tmb_results_statement"
 
     /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_qc_plots.py \
-    -i "$QUEUEID" \
+    -i "$TUMOR_SAMPLEID" \
     -d "$DB_HOST" \
     -e "$ENVIRONMENT"  \
     -u "$USER"  \
@@ -438,10 +438,10 @@ main()
 
     tmb_run_Alignment_paired
 
-    tmb_run_variant_caller_paired
-
-    tmb_generate_stats
-
+    # tmb_run_variant_caller_paired
+    #
+    # tmb_generate_stats
+    #
     # tmb_run_dbUpdate
 
     fi
