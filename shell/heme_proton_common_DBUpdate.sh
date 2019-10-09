@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 #
-# FILE: runDBUpdate.sh
+# FILE: hehe_proton_common_DBUpdate.sh
 #
 #DESCRIPTION: This script is common among all pipelines and loads variant and amplicon
 #             information into NGS database.
@@ -109,7 +109,7 @@ load_variants()
 
     if [ "$INSTRUMENT" == "proton" ] ; then
 
-       variantfile=$(ls ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt)
+       variantfile=$(ls ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter.txt)
 
    elif [ "$INSTRUMENT" == "nextseq" ] ; then
 

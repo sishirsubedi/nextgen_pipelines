@@ -71,6 +71,8 @@ load_modules()
 {
 	source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
   source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_align.sh
+  source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
+  source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_vep.sh
 
 }
 
@@ -87,7 +89,8 @@ run_trimmomatic()
 	TRAILING:20 \
 	AVGQUAL:20 \
 	SLIDINGWINDOW:10:20 \
-	MINLEN:30"
+	MINLEN:30 \
+  HEADCROP:20"
 	($trimmomatic) 2>&1 | tee ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.trimmomatic.summary.txt
 }
 
@@ -122,49 +125,85 @@ java -jar /opt/picard2/picard.jar CollectAlignmentSummaryMetrics \
           O=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam.alignmentMetrics.txt
 }
 
-remove_duplicates()
-{
-log_info "Removing duplicates sample- $SAMPLE "
-java -jar /opt/picard2/picard.jar MarkDuplicates \
-          REMOVE_DUPLICATES=true \
-          INPUT=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam \
-          OUTPUT=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam \
-          METRICS_FILE=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam.metrics.txt
-}
+# remove_duplicates()
+# {
+# log_info "Removing duplicates sample- $SAMPLE "
+# java -jar /opt/picard2/picard.jar MarkDuplicates \
+#           REMOVE_DUPLICATES=true \
+#           INPUT=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam \
+#           OUTPUT=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam \
+#           METRICS_FILE=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam.metrics.txt
+# }
 
 generate_bamIndex()
 {
 log_info "Generating bam index sample- $SAMPLE"
 java -jar /opt/picard2/picard.jar BuildBamIndex \
-          I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam
+          I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam
 }
+
 
 calculate_targetCoverage()
 {
 log_info "Generating CalculateHsMetrics sample- $SAMPLE "
-# # java -jar /opt/picard/picard-tools-1.134/picard.jar BedToIntervalList  I=cre_v1_design.bed O=/home/hhadmin/exome_pipeline/01_bamQC/cre_v1_design_bed.interval_list SD=/doc/ref/ref_genome/ucsc.hg19.dict
+# # java -jar /opt/picard/picard-tools-1.134/picard.jar BedToIntervalList  I=myeloid_design.bed O=myeloid_design.interval_list SD=/doc/ref/ref_genome/ucsc.hg19.dict
 java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
-          I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam  \
+          I=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam  \
           O=${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.output_hs_metrics.txt \
           R=$REF_GENOME \
-          BAIT_INTERVALS=   /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/tmbAssay/cre_design_bed.interval_list \
-          TARGET_INTERVALS=   /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/tmbAssay/cre_design_bed.interval_list
+          BAIT_INTERVALS= /home/environments/ngs_test/assayCommonFiles/hemeAssay/myeloid_design.interval_list \
+          TARGET_INTERVALS= /home/environments/ngs_test/assayCommonFiles/hemeAssay/myeloid_design.interval_list
 }
 
-calculate_breadthCoverage()
+heme_generate_variantFile()
 {
-/opt/samtools19/bin/samtools depth ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam  > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.bed
-awk '{ if ( ( $1 !~ "chrM") && ( $1 !~ /\_/  ) && ( $3 >= 10) ) {print $1 "\t" $2 "\t" $2+1 "\t" $3} }' ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.bed > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.filter2.bed
-/opt/bedtools2/bin/bedtools intersect -a ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.filter2.bed -b /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/tmbAssay/cre_design_ucsc_exon.txt_filter.csv -wa -wb > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.depth.filter2.exon_intersect.bed
+
+  heme_varscan ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.bam  ${OUTPUT_DIR_SAMPLE_ALIGNMENT}
+
+
+  bash ${HOME_SHELL}heme_parseVarScan.sh \
+          -s ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.snp.txt \
+          -i ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.indel.txt \
+          -o ${OUTPUT_DIR_SAMPLE_ALIGNMENT}  \
+          -e $ENVIRONMENT
+
+   VARIANT_VCF=$(ls ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.comb.vcf)
 }
 
-calculate_uniformity()
-{
-log_info "#####generating uniformity calculation sample- $SAMPLE "
-/opt/bedtools2/bin/bedtools coverage -a /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/tmbAssay/cre_design.bed -b ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.bed -mean > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
-# /opt/python3/bin/python3 /home/hhadmin/exome_pipeline/01_bamQC/06_uniformityPlots.py  ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.CREcoverage.mean.bed
 
-/opt/samtools19/bin/samtools view ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.sorted.rmdups.bam | awk '{ n=length($10); print gsub(/[AaTt]/,"",$10)/n;}' > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.ATCount.txt
+heme_pre_annotation()
+{
+
+  HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
+  #bedtools -u flag to write original A entry once if any overlaps found in B
+  /opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $VARIANT_VCF -b $HEME_EXCLUDED_DESIGN > ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.vcf
+
+
+  # HEME_EXCLUDED_AMPLICON="/home/doc/ref/Heme/excludedAmplicons.txt"
+  # # -v means "invert the match" in grep, in other words, return all non matching lines.
+  # grep -v -f $HEME_EXCLUDED_AMPLICON $AMPLICON_FILE > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.amplicon.filter.txt
+
+}
+
+run_vep()
+{
+	log_info "Running VEP"
+
+  # vep_83 "${HOME}variantAnalysis/${SAMPLENAME}.filter.vcf"  "${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf"
+
+  vep_94_panel "${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.vcf"  "${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.vep.vcf"
+
+  log_info "Completed VEP"
+}
+
+parse_vep()
+{
+  log_info "Parse VEP"
+
+	python ${HOME_PYTHON}parseVEP_v2.py \
+					parseIlluminaNextseq   \
+					-I ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.vep.vcf\
+					-o ${OUTPUT_DIR_SAMPLE_ALIGNMENT}${SAMPLE}.filter.vep.parse.vcf
 }
 
 # ##############################################################################
@@ -180,6 +219,8 @@ main()
 	fi
 
 	DIR_SCRIPT="/home/pipelines/ngs_${ENVIRONMENT}/"
+  HOME_PYTHON="/home/pipelines/ngs_${ENVIRONMENT}/python/"
+  HOME_SHELL="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 	REF_GENOME="/home/doc/ref/ref_genome/ucsc.hg19.fasta"
 	MAP_QUALITY="20"
 
@@ -201,7 +242,7 @@ main()
 
 
 	log_info "
-	Starting - runAlignment_Interface.sh
+	Starting - heme_Interface.sh
 	SAMPLE - $SAMPLE
 	FASTQ_DIR - $FASTQ_DIR
 	OUTPUT_DIR - $OUTPUT_DIR
@@ -209,21 +250,32 @@ main()
 	OUTPUT_DIR_SAMPLE_ALIGNMENT - $OUTPUT_DIR_SAMPLE_ALIGNMENT
 	LOG_FILE - $LOG_FILE "
 
-	run_trimmomatic
+  # run_trimmomatic
+  #
+  # run_alignment
+  #
+  # sort_bam
+  #
+  # generate_alignStat
+  #
+  # #remove_duplicates
+  #
+  # generate_bamIndex
+  #
+  # calculate_targetCoverage
 
-  run_alignment
 
-	sort_bam
+  VARIANT_VCF=""
 
-	generate_alignStat
 
-  remove_duplicates
+  heme_generate_variantFile
 
-	generate_bamIndex
+  heme_pre_annotation
 
-	calculate_targetCoverage
+  run_vep
 
-	calculate_breadthCoverage
+  parse_vep
+
 
 }
 

@@ -146,7 +146,7 @@ run_protonPipeline()
 {
 
   bash ${HOME_SHELLDIR}proton_annotationPipeline.sh -d $HOME \
-        -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
+        -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -a $ASSAY -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
 
 }
 

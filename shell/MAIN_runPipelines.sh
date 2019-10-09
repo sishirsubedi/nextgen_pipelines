@@ -203,23 +203,23 @@ submit_sample_illumina()
 
   log_info "Submitting illuminaPipelineInterface ; current sample - $queueID ; $runID ; $instrument ; $assay ; $sampleName"
 
-  # if [ $assay == "heme" ] ; then
-  #
-  #   /opt/torque/bin/qsub -d ${working_dir} -l walltime=10:00:00,nodes=1:ppn=4   \
-  #        -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
-  #        ${HOME_SHELL}illuminaPipelineInterface.sh
-  #
-  # elif [ $assay == "tmb" ] ; then
-  #
-  #   /opt/torque/bin/qsub -d ${working_dir} -l  walltime=50:00:00,nodes=1:ppn=12  \
-  #        -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
-  #        ${HOME_SHELL}illuminaPipelineInterface.sh
-  #
-  # fi
+  if [ $assay == "heme" ] ; then
 
-    /opt/torque/bin/qsub -d ${working_dir}  \
+    /opt/torque/bin/qsub -d ${working_dir} -l "walltime=10:00:00,nodes=1:ppn=4"   \
          -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
          ${HOME_SHELL}illuminaPipelineInterface.sh
+
+  elif [ $assay == "tmb" ] ; then
+
+    /opt/torque/bin/qsub -d ${working_dir} -l  "walltime=50:00:00,nodes=1:ppn=12"  \
+         -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+         ${HOME_SHELL}illuminaPipelineInterface.sh
+
+  fi
+
+    # /opt/torque/bin/qsub -d ${working_dir}  \
+    #      -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+    #      ${HOME_SHELL}illuminaPipelineInterface.sh
 
 }
 

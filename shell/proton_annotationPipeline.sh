@@ -24,6 +24,7 @@ cat <<EOF >> /dev/stderr
  s - sampleName
  c - coverageID
  v - callerID
+ a - assay
  e - environment
  q - queueID
  u - user
@@ -36,7 +37,7 @@ parse_options()
 {
     IMPORT=0
 
-		while getopts "hz:d:s:c:v:e:q:u:p:" opt ; do
+		while getopts "hz:d:s:c:v:a:e:q:u:p:" opt ; do
 				case $opt in
 					h)
 						 display_usage
@@ -57,7 +58,10 @@ parse_options()
 					v)
 						CALLERID=$OPTARG
 						;;
-				  e)
+          a)
+            ASSAY=$OPTARG
+            ;;
+          e)
 				    ENVIRONMENT=$OPTARG
 					  ;;
 				  q)
@@ -75,6 +79,7 @@ parse_options()
 					\?)
 						echo "Invalid option: -$OPTARG"
 			esac
+
 	  done
 		if [ $IMPORT -gt 0 ] ; then
 				return 0
@@ -124,22 +129,30 @@ parse_vep()
 					parseIonNewVarView \
 					-I ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.vcf \
 					-o ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt
-
 }
 
 filter_vep()
 {
-	log_info "Filtering VEP variants (High/Moderate/>100)"
+	log_info "Filtering VEP variants : assay specific filtering"
+
+
+  /opt/python3/bin/python3 ${HOME_PYTHON}filterVEP.py \
+					-i ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt \
+          -o ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter.txt \
+          -a $ASSAY
 
   sample_ID=$(grep "^#CHROM" ${HOME}${CALLERID}/TSVC_variants.filter.vcf |cut -f 10)
+
+
+  log_info "Filtering VEP variants (High/Moderate/>100)"
 
   shopt -s nocasematch
   if [[ $sample_ID =~ horizon ]]
 	then
-		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt \
+		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter.txt \
 		> ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter2.txt
 	else
-		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.txt \
+		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter.txt \
 		> ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter2.txt
 	fi
 
@@ -158,7 +171,7 @@ update_db()
 
   log_info "Updating Database"
 
-  bash ${HOME_SHELL}runDBUpdate.sh -d $HOME -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -q $QUEUEID -e $ENVIRONMENT -u $USER -p $PASSWORD
+  bash ${HOME_SHELL}heme_proton_common_DBUpdate.sh -d $HOME -s $SAMPLENAME -c $COVERAGEID -v $CALLERID -q $QUEUEID -e $ENVIRONMENT -u $USER -p $PASSWORD
 
 }
 

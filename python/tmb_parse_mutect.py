@@ -150,7 +150,7 @@ df_vcf.columns=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']
 ##################################
 
 if "COLO" in SAMPLE:
-    DESIGN_FILE= "/home/hhadmin/exome_pipeline/agilentCre/cre_design.bed"
+    DESIGN_FILE= "/home/environments/ngs_"+ENV+"/assayCommonFiles/tmbAssay/cre_design.bed"
     df_design = pd.read_csv(DESIGN_FILE,sep='\t')
     df_design.columns=['CHROM','START','END']
 
