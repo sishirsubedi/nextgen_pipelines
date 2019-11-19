@@ -9,8 +9,6 @@
 # COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
 #===============================================================================
 
-#PBS -l nodes=1:ppn=10
-#PBS -l walltime=99:00:00
 #PBS -q default
 #PBS Error_Path=${PBS_JOBNAME}.err
 #PBS Output_Path=${PBS_JOBNAME}.out
@@ -129,7 +127,7 @@ heme_generate_ampliconFile()
 {
       HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
 
-      /opt/samtools-1.4/samtools-1.4/samtools bedcov  $HEME_EXCLUDED_DESIGN  ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sorted.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth
+      /opt/samtools-1.4/samtools-1.4/samtools bedcov  $HEME_EXCLUDED_DESIGN  ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth
 
       AMPLICON_FILE=$(ls ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth)
 
@@ -205,21 +203,21 @@ tmb_run_Alignment_paired()
 
 tmb_run_variant_caller_paired()
 {
-	if [ ! -f ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam ] ; then
-		log_info "Error: ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam file not found"
+	if [ ! -f ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sort.rmdups.bam ] ; then
+		log_info "Error: ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sort.rmdups.bam file not found"
 		return
 	fi
 
-	if [ ! -f ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sorted.rmdups.bam ] ; then
-		log_info "Error: ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam file not found"
+	if [ ! -f ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sort.rmdups.bam ] ; then
+		log_info "Error: ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sort.rmdups.bam file not found"
 		return
 	fi
 
   update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
 
 	bash /home/pipelines/ngs_${ENVIRONMENT}/shell/tmb_VCaller_interface.sh \
-	    -n ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
-	    -t ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sorted.rmdups.bam \
+	    -n ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sort.rmdups.bam \
+	    -t ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sort.rmdups.bam \
 	    -v varscan-strelka-mutect \
 			-o ${TMB_VC_OUT} \
       -e $ENVIRONMENT \
@@ -232,7 +230,6 @@ tmb_run_variant_caller_paired()
 
 tmb_generate_stats()
 {
-
   /opt/python3/bin/python3   ${HOME_PYTHONDIR}tmb_getSeqStat.py \
         "${TMB_AL_OUT}${TUMOR}/Alignment/"      "$TUMOR"  \
         "${TMB_AL_OUT}${NORMAL}/Alignment/"      "$NORMAL"  \
@@ -241,15 +238,16 @@ tmb_generate_stats()
 
   wc -l /home/environments/ngs_${ENVIRONMENT}/nextseqAnalysis/tmbAssay/${RUNNAME}/${TUMOR}/Single/${TUMOR}/Alignment/${TUMOR}.depth.filter2.exon_intersect.bed > ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}.breadth_coverage
 
-  # /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_vcQC.py \
-  # ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.variantcallers.combinev2.*.vep.parse.txt \
-  # ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.titv_ratio
+  /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_vcQC.py \
+  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.variantcallers.combinev2.*.vep.parse.txt \
+  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.titv_ratio
 
   /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_final_result.py \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.seq_stats   \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}.breadth_coverage \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}_varscan_strelka_mutect_10_10_10.variants_results  \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.tmb_result \
+  ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.titv_ratio \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.final_result.txt
 }
 
@@ -331,9 +329,7 @@ main()
   		runID : $RUNID
   		sampleName : $SAMPLENAME
   		environment : $ENVIRONMENT
-  		queueID : $QUEUEID
-      fastq1 : $FASTQ_R1
-      fastq2 : $FASTQ_R2 "
+  		queueID : $QUEUEID "
 
        heme_generate_variantFile
 

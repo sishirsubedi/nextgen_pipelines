@@ -137,32 +137,32 @@ heme_generate_variantFile()
 	${HOME_ANALYSIS}variantCaller  \
 	${HOME_ANALYSIS}process.log
 
-  log_info "Generating sorted bam by coordinate sample- $SAMPLENAME"
+  log_info "Generating sort bam by coordinate sample- $SAMPLENAME"
   java -jar /opt/picard2/picard.jar SortSam \
             I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.bam  \
-            O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sorted.bam  \
+            O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  \
             SORT_ORDER=coordinate
 
   log_info "Generating alignment stat sample- $SAMPLENAME"
   java -jar /opt/picard2/picard.jar CollectAlignmentSummaryMetrics \
             R=$REF_GENOME \
-            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sorted.bam \
-            O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sorted.bam.alignmentMetrics.txt
+            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam \
+            O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam.alignmentMetrics.txt
 
   log_info "Generating bam index sample- $SAMPLENAME"
   java -jar /opt/picard2/picard.jar BuildBamIndex \
-            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sorted.bam
+            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam
 
   log_info "Generating CalculateHsMetrics sample- $SAMPLENAME "
   java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
-            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sorted.bam  \
+            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  \
             O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.output_hs_metrics.txt \
             R=$REF_GENOME \
             BAIT_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/hemeAssay/myeloid_design.interval_list \
             TARGET_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/hemeAssay/myeloid_design.interval_list
 
 
-  if [ ! -f "${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sorted.bam" ] ; then
+  if [ ! -f "${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam" ] ; then
 
     log_error "ERROR:Alignment output file not found"
     update_status "$QUEUEID" "ERROR:Alignment" "$DB" "$USER"  "$PASSWORD"
@@ -177,7 +177,7 @@ heme_generate_variantFile()
 
   ### variant caller ########
   update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
-  heme_varscan ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sorted.bam  ${HOME_ANALYSIS}variantCaller
+  heme_varscan ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  ${HOME_ANALYSIS}variantCaller
 
   if [ ! -f "${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.snp.txt" ] ; then
 
@@ -281,21 +281,21 @@ tmb_run_Alignment_paired()
 
 tmb_run_variant_caller_paired()
 {
-	if [ ! -f ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam ] ; then
-		log_info "Error: ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam file not found"
+	if [ ! -f ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sort.rmdups.bam ] ; then
+		log_info "Error: ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sort.rmdups.bam file not found"
 		return
 	fi
 
-	if [ ! -f ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sorted.rmdups.bam ] ; then
-		log_info "Error: ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam file not found"
+	if [ ! -f ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sort.rmdups.bam ] ; then
+		log_info "Error: ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sort.rmdups.bam file not found"
 		return
 	fi
 
   update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
 
 	bash /home/pipelines/ngs_${ENVIRONMENT}/shell/tmb_VCaller_interface.sh \
-	    -n ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sorted.rmdups.bam \
-	    -t ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sorted.rmdups.bam \
+	    -n ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sort.rmdups.bam \
+	    -t ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sort.rmdups.bam \
 	    -v varscan-strelka-mutect \
 			-o ${TMB_VC_OUT} \
       -e $ENVIRONMENT \
