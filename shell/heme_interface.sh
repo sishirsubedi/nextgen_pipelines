@@ -118,14 +118,15 @@ heme_run_alignment()
 	TRAILING:20 \
 	AVGQUAL:20 \
 	SLIDINGWINDOW:10:20 \
-	MINLEN:30 "
+	MINLEN:80 \
+  HEADCROP:20 "
 	($trimmomatic) 2>&1 | tee ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.trimmomatic.summary.txt
 
 
   ### alignment ########
   update_status "$QUEUEID" "Alignment" "$DB" "$USER"  "$PASSWORD"
   log_info "Running bwa mem aligner: $SAMPLENAME"
-  tmb_bwaAlign $SAMPLENAME  \
+  tmb_bwaSWAlign $SAMPLENAME  \
 	$REF_GENOME  \
 	$MAP_QUALITY \
 	${HOME_ANALYSIS}variantCaller/${SAMPLENAME}_filt_paired_R1_001.fastq.gz \
@@ -177,7 +178,7 @@ heme_run_variantCaller()
 
   log_info "Running variant calling for - $SAMPLENAME"
 
-	VCS=( "varscan" "freebayes" "mutect")
+	VCS=( "varscan" "mutect" "freebayes" )
 
   update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
 

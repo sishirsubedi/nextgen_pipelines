@@ -60,3 +60,31 @@ tmb_bwaAlign()
 
 
 }
+
+tmb_bwaSWAlign()
+{
+
+  SAMPLE=$1
+  REF=$2
+  MAP_QUALITY=$3
+  FASTQ1=$4
+  FASTQ2=$5
+  OUT_DIR=$6
+  LOG_FILE=$7
+
+
+  echo "Starting BWA alignment and generating bam file for:
+  SAMPLE - $SAMPLE
+  REF - $REF
+  FASTQ1 - $FASTQ1
+  FASTQ2 - $FASTQ2
+  OUT_DIR - $OUT_DIR
+  LOG_FILE - $LOG_FILE
+  "
+
+  /opt/bwa/bwa-0.7.12/bwa bwasw -M -t 8 -b 6 -q 10 "$REF" "$FASTQ1" "$FASTQ2" | /opt/samtools19/bin/samtools view --threads 8 -bf 0x2 -q "$MAP_QUALITY" > ${OUT_DIR}${SAMPLE}.noRG.bam
+
+
+  java -jar /opt/picard2/picard.jar AddOrReplaceReadGroups  I=${OUT_DIR}${SAMPLE}.noRG.bam O=${OUT_DIR}${SAMPLE}.bam RGID=${SAMPLE} RGLB=1 RGSM=${SAMPLE} RGPL=ILLUMINA RGPU=1
+
+}

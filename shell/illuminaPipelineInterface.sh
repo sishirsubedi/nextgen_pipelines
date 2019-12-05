@@ -331,16 +331,16 @@ main()
   		environment : $ENVIRONMENT
   		queueID : $QUEUEID "
 
-       heme_generate_variantFile
+      heme_generate_variantFile
 
-       heme_generate_ampliconFile
+      heme_generate_ampliconFile
 
-       log_info " amplicon file is - $AMPLICON_FILE"
-       log_info " variant file is - $VARIANT_VCF"
+      log_info " amplicon file is - $AMPLICON_FILE"
+      log_info " variant file is - $VARIANT_VCF"
 
-       heme_pre_annotation
+      heme_pre_annotation
 
-       heme_run_annotation
+      heme_run_annotation
 
     elif [ $ASSAY == "tmb" ] ; then
 
