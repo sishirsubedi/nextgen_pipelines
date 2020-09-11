@@ -5,7 +5,7 @@
 #
 #DESCRIPTION: This script is run to generate required files
 #             for heme and tumor mutation burden assays.
-# REQUIREMENTS: runPipelines.sh
+# REQUIREMENTS: MAIN_runPipelines.sh
 # COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
 #===============================================================================
 
@@ -109,7 +109,6 @@ create_rundate()
 
 heme_generate_variantFile()
 {
-
   bash /home/pipelines/ngs_${ENVIRONMENT}/shell/heme_interface.sh \
       -r $RUNID \
       -s $SAMPLENAME \
@@ -150,6 +149,7 @@ heme_pre_annotation()
 
   HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
   #bedtools -u flag to write original A entry once if any overlaps found in B
+  #KEEP variants if they occurn in heme design region
   /opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $VARIANT_VCF -b $HEME_EXCLUDED_DESIGN > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.filter.vcf
 
 
@@ -162,6 +162,27 @@ heme_pre_annotation()
 heme_run_annotation()
 {
   bash ${HOME_SHELLDIR}heme_annotationPipeline.sh -d $HOME_ANALYSIS \
+        -s $SAMPLENAME -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
+}
+
+cardiac_exome_generate_variantFile()
+{
+  bash /home/pipelines/ngs_${ENVIRONMENT}/shell/cardiac_exome_interface.sh \
+      -r $RUNID \
+      -s $SAMPLENAME \
+      -a $ASSAY \
+      -i $INSTRUMENT \
+      -e $ENVIRONMENT \
+      -q $QUEUEID  \
+      -u $USER \
+      -p $PASSWORD
+
+  VARIANT_VCF=$(ls ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.v4.vcf )
+}
+
+cardiac_exome_run_annotation()
+{
+  bash ${HOME_SHELLDIR}cardiac_exome_annotationPipeline.sh -d $HOME_ANALYSIS \
         -s $SAMPLENAME -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
 }
 
@@ -199,7 +220,6 @@ tmb_run_Alignment_paired()
       -p  $PASSWORD " echo ::: "$NORMAL" "$TUMOR" ::: "$FASTQ_DIR_NORMAL" "$FASTQ_DIR"
 
 }
-
 
 tmb_run_variant_caller_paired()
 {
@@ -341,6 +361,38 @@ main()
       heme_pre_annotation
 
       heme_run_annotation
+
+
+    elif [ $ASSAY == "cardiac_exome" ] ; then
+
+      create_rundate
+
+      exec >  >(tee -a ${HOME_ANALYSIS}process.log)
+      exec 2> >(tee -a ${HOME_ANALYSIS}process.log >&2)
+
+      show_pbsinfo
+
+
+      VARIANT_VCF=""
+
+      create_dir ${HOME_ANALYSIS}variantCaller
+      create_dir ${HOME_ANALYSIS}variantAnalysis
+
+
+      log_info " Running illumina Pipeline Interface BY qsub for :
+      assay : $ASSAY
+      instrument : $INSTRUMENT
+      runID : $RUNID
+      sampleName : $SAMPLENAME
+      environment : $ENVIRONMENT
+      queueID : $QUEUEID "
+
+      # cardiac_exome_generate_variantFile
+
+      log_info " variant file is - $VARIANT_VCF"
+
+      cardiac_exome_run_annotation
+
 
     elif [ $ASSAY == "tmb" ] ; then
 

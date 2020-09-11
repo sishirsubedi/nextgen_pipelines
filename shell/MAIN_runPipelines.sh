@@ -209,6 +209,12 @@ submit_sample_illumina()
          -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
          ${HOME_SHELL}illuminaPipelineInterface.sh
 
+  elif [ $assay == "cardiac_exome" ] ; then
+
+    /opt/torque/bin/qsub -d ${working_dir} -l "walltime=25:00:00,nodes=1:ppn=4"   \
+        -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+        ${HOME_SHELL}illuminaPipelineInterface.sh
+
   elif [ $assay == "tmb" ] ; then
 
     /opt/torque/bin/qsub -d ${working_dir} -l  "walltime=50:00:00,nodes=1:ppn=12"  \

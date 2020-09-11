@@ -64,7 +64,6 @@ df_both.drop(filter_indx, inplace=True)
 ##################################
 df_both_pass_s0 = df_both[(df_both['somatic_status'].isin(['Somatic']) )]
 
-
 ##################################
 ### update additional columns
 ##################################

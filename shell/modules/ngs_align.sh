@@ -61,7 +61,7 @@ tmb_bwaAlign()
 
 }
 
-tmb_bwaSWAlign()
+heme_bwaSWAlign()
 {
 
   SAMPLE=$1

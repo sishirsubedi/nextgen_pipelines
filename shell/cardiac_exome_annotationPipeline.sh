@@ -80,23 +80,39 @@ load_modules()
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_vep.sh
 }
 
-run_vep()
+run_snpeff_vep()
 {
-	log_info "Running VEP"
+	log_info "Running SNPEFF"
 
-  vep_94_panel "${HOME}variantAnalysis/${SAMPLENAME}.filter.vcf"  "${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf"
+  snpeff_germline  "${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.v4.vcf"  "${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.snpeff.vcf"
 
-  log_info "Completed VEP"
+  vep_germline  "${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.v4.vcf"  "${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.vep.vcf"
+
+  log_info "Completed SNPEFF"
 }
 
-parse_vep()
+parse_snpeff_vep_add_annotation()
 {
+  log_info "Parse SNPEFF"
+
+  /opt/python3/bin/python3 ${HOME_PYTHON}germline_parse_snpeff.py \
+  ${HOME}variantAnalysis/${SAMPLENAME}.mutect.snpeff.vcf \
+  ${HOME}variantAnalysis/${SAMPLENAME}.mutect.snpeff.parse.vcf \
+  ${HOME}variantAnalysis/${SAMPLENAME}.mutect.snpeff.parse_all.vcf
+
   log_info "Parse VEP"
 
-	python ${HOME_PYTHON}parseVEP_v2.py \
-					parseIlluminaNextseq   \
-					-I ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf\
-					-o ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf
+  /opt/python3/bin/python3 ${HOME_PYTHON}germline_parse_vep.py \
+  ${HOME}variantAnalysis/${SAMPLENAME}.mutect.vep.vcf \
+  ${HOME}variantAnalysis/${SAMPLENAME}.mutect.vep.parse.vcf
+
+
+  ### add_annotation
+  /opt/python3/bin/python3 ${HOME_PYTHON}germline_add_annotation.py \
+  ${SAMPLENAME} \
+  ${HOME}variantAnalysis/ \
+  ${ENVIRONMENT} ${DB_HOST} ${DB} ${USER}  ${PASSWORD}
+
 }
 
 filter_amplicon()
@@ -147,6 +163,7 @@ main()
 		HOME_PYTHON="/home/pipelines/ngs_${ENVIRONMENT}/python/"
 		HOME_SHELL="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
 		DB="ngs_${ENVIRONMENT}"
+    DB_HOST="hhplabngsp01"
 
 		log_info " Running illumina pipeline for :
 		dir : $HOME
@@ -156,12 +173,12 @@ main()
 
 
     update_status "$QUEUEID" "RunningVEP" "$DB" "$USER"  "$PASSWORD"
-		run_vep
+
+		# run_snpeff_vep
+
     update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD"
 
-		parse_vep
-
-		filter_amplicon
+		parse_snpeff_vep_add_annotation
 
     update_status "$QUEUEID" "UpdatingDatabase" "$DB" "$USER"  "$PASSWORD"
 

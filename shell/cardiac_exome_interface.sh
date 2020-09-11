@@ -85,7 +85,7 @@ load_modules()
 {
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
       source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_align.sh
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
+      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_vep.sh
 }
 
 create_rundate()
@@ -102,7 +102,7 @@ create_rundate()
 
 }
 
-heme_run_alignment()
+run_alignment()
 {
   update_status "$QUEUEID" "Trimming" "$DB" "$USER"  "$PASSWORD"
 
@@ -117,15 +117,14 @@ heme_run_alignment()
 	TRAILING:20 \
 	AVGQUAL:20 \
 	SLIDINGWINDOW:10:20 \
-	MINLEN:80 \
-  HEADCROP:20 "
+	MINLEN:30 "
 	($trimmomatic) 2>&1 | tee ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.trimmomatic.summary.txt
 
 
   ### alignment ########
   update_status "$QUEUEID" "Alignment" "$DB" "$USER"  "$PASSWORD"
-  log_info "Running bwa mem aligner: $SAMPLENAME"
-  heme_bwaSWAlign $SAMPLENAME  \
+  log_info "Running aligner: $SAMPLENAME"
+  tmb_bwaAlign $SAMPLENAME  \
 	$REF_GENOME  \
 	$MAP_QUALITY \
 	${HOME_ANALYSIS}variantCaller/${SAMPLENAME}_filt_paired_R1_001.fastq.gz \
@@ -145,20 +144,27 @@ heme_run_alignment()
             I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam \
             O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam.alignmentMetrics.txt
 
+  log_info "Removing duplicates sample- $SAMPLE "
+  java -jar /opt/picard2/picard.jar MarkDuplicates \
+            REMOVE_DUPLICATES=true \
+            INPUT=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam \
+            OUTPUT=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.rmdups.bam \
+            METRICS_FILE=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.rmdups.bam.metrics.txt
+
   log_info "Generating bam index sample- $SAMPLENAME"
   java -jar /opt/picard2/picard.jar BuildBamIndex \
-            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam
+            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.rmdups.bam
 
-  log_info "Generating CalculateHsMetrics sample- $SAMPLENAME "
-  java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
-            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  \
-            O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.output_hs_metrics.txt \
-            R=$REF_GENOME \
-            BAIT_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/hemeAssay/myeloid_design.interval_list \
-            TARGET_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/hemeAssay/myeloid_design.interval_list
+  # log_info "Generating CalculateHsMetrics sample- $SAMPLENAME "
+  # java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
+  #           I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.rmdups.bam  \
+  #           O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.output_hs_metrics.txt \
+  #           R=$REF_GENOME \
+  #           BAIT_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/cardiac_exomeAssay/myeloid_design.interval_list \
+  #           TARGET_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/cardiac_exomeAssay/myeloid_design.interval_list
 
 
-  if [ ! -f "${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam" ] ; then
+  if [ ! -f "${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.rmdups.bam" ] ; then
 
     log_error "ERROR:Alignment output file not found"
     update_status "$QUEUEID" "ERROR:Alignment" "$DB" "$USER"  "$PASSWORD"
@@ -171,87 +177,57 @@ heme_run_alignment()
   fi
 }
 
-
-heme_run_variantCaller()
+run_variantCaller()
 {
-  log_info "Running variant calling for - $SAMPLENAME"
+  while IFS=, read chr start end gene refseq; do
 
-	VCS=( "varscan" "mutect" "freebayes" )
+    echo $chr $start $end $gene $refseq
 
-  update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
-
-	for v_caller in "${VCS[@]}";do
-
-    if [[ "$v_caller" == "varscan" ]];then
-
-      log_info "Starting :  $v_caller "
-
-      heme_varscan ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam   ${HOME_ANALYSIS}variantCaller
-
-      bash ${HOME_SHELLDIR}heme_parseVarScan.sh \
-              -s ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.snp.varscan.output \
-              -i ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.indel.varscan.output \
-              -o ${HOME_ANALYSIS}variantCaller/  \
-              -f ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.varscan.vcf  \
-              -e $ENVIRONMENT
-
-    elif [[ "$v_caller" == "freebayes" ]];then
-
-      log_info "Starting :  $v_caller "
-
-      /opt/freebayes2/freebayes/bin/freebayes -f $REF_GENOME   ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  > ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.freebayes.output
-
-      java -jar /opt/GATK4/GenomeAnalysisTK.jar \
-           -R $REF_GENOME \
-           -T VariantsToTable \
-           --showFiltered \
-           -V ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.freebayes.output \
-           -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER \
-           -GF DP -GF RO  -GF AO  \
-           -o ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.freebayes.vcf
+    java  -jar /opt/GATK4/GenomeAnalysisTK.jar \
+        -T HaplotypeCaller  \
+        -R $REF_GENOME \
+        -I ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.rmdups.bam   \
+        -L ${chr}:${start}-${end} \
+        -o ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.rmdups.bam.${chr}_${gene}.output
 
 
-    elif [[ "$v_caller" == "mutect" ]];then
+    java  -jar /opt/GATK4/GenomeAnalysisTK.jar \
+          -R $REF_GENOME \
+          -T VariantsToTable \
+          --showFiltered \
+          -V ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.rmdups.bam.${chr}_${gene}.output \
+          -F CHROM -F POS -F ID -F REF -F ALT -F FILTER \
+          -F QUAL -GF PL -GF GQ \
+          -GF AD -GF GT  -F DP -F AC -F AF  \
+          -o ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.sort.rmdups.bam.${chr}_${gene}.vcf
 
-      log_info "Starting :  $v_caller "
 
-      java  -jar /opt/GATK4/GenomeAnalysisTK.jar \
-            -T MuTect2 \
-            -R $REF_GENOME \
-            -I:tumor ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam   \
-            -o ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.mutect.output
+  done < /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/cardiac_exomeAssay/5_ucsc_hgmd_genomic_region.csv
 
-
-      java  -jar /opt/GATK4/GenomeAnalysisTK.jar \
-            -R $REF_GENOME \
-            -T VariantsToTable \
-            --showFiltered \
-            -V ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.mutect.output \
-            -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER \
-            -GF GT -GF AD -GF AF  \
-            -o ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.mutect.vcf
-
-    fi
-
-	done
 }
 
-heme_selects_variants()
+select_variants()
 {
-  ## generate variants present in at least 2 out of 3 VCs
-  /opt/python3/bin/python3   ${HOME_PYTHONDIR}heme_selectHQVariants.py "${HOME_ANALYSIS}variantCaller/"  "$SAMPLENAME"  "${SAMPLENAME}.combine_VC2of3.vcf"
+  /opt/python3/bin/python3 ${HOME_PYTHONDIR}germline_parse_mutect.py \
+  ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.sort.rmdups.bam \
+  /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/cardiac_exomeAssay/5_ucsc_hgmd_genomic_region.csv \
+  ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.vcf.txt
 
-  ## use "${SAMPLENAME}.combine_VC2of3.vcf" file from above
-  ## Filter variants BETWEEN 5-10% with db check and everything above 10% VAF
-  /opt/python3/bin/python3   ${HOME_PYTHONDIR}heme_select5P_HQVariants.py  \
-        -u $USER \
-        -p $PASSWORD \
-        -d $DB \
-        -b $DB_HOST \
-        -f "${HOME_ANALYSIS}variantCaller/"  \
-        -s $SAMPLENAME \
-        -o "${SAMPLENAME}.combine.vcf" 
+  ##filter non cardiac regions
+  awk '{ if ( ( $1 !~ /\_/  )  ) {print $1 "\t" $2 "\t" $2+1 "\t" $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7 "\t" $8 "\t" $9 "\t" $10 "\t" $11 "\t" $12 "\t" $13   "\t" $14  "\t" $15  "\t" $16 } }' ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.vcf.txt >  ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.v2.vcf.txt
+
+  /opt/bedtools2/bin/bedtools intersect \
+   -a  ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.v2.vcf.txt \
+   -b /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/cardiac_exomeAssay/4_ucsc_hgmd_cardiac_exons_rowwise.txt -wa -wb > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.v3.vcf.txt
+
+
+  /opt/python3/bin/python3 ${HOME_PYTHONDIR}germline_vep_prep.py \
+  ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.v3.vcf.txt \
+  ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.v4.vcf
+
 }
+
+
 
 # ##############################################################################
 # main
@@ -300,11 +276,12 @@ main()
     ref: $REF_GENOME
     mapQ: $MAP_QUALITY "
 
-    heme_run_alignment
+    run_alignment
 
-    heme_run_variantCaller
+    run_variantCaller
 
-    heme_selects_variants
+    select_variants
+
 }
 
 # ##############################################################################
