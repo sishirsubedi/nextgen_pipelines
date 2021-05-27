@@ -22,7 +22,7 @@ OUT_DIR : $OUT_DIR
 "
 
 # ###configuration
-/opt/strelka/strelka-2.9.10.centos6_x86_64/bin/configureStrelkaSomaticWorkflow.py \
+/storage/apps/opt/strelka/bin/configureStrelkaSomaticWorkflow.py \
     --normalBam $NORMAL_BAM \
     --tumorBam $TUMOR_BAM \
     --ref $REF \
@@ -36,7 +36,7 @@ gunzip < ${OUT_DIR}results/variants/somatic.snvs.vcf.gz > ${OUT_DIR}somatic.snvs
 
 gunzip < ${OUT_DIR}results/variants/somatic.indels.vcf.gz > ${OUT_DIR}somatic.indels.vcf.txt
 
-java -jar /opt/GATK4/GenomeAnalysisTK.jar \
+/storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/gatk/GenomeAnalysisTK.jar \
      -R $REF \
      -T VariantsToTable \
      -V ${OUT_DIR}somatic.snvs.vcf.txt \
@@ -46,7 +46,7 @@ java -jar /opt/GATK4/GenomeAnalysisTK.jar \
      -o ${OUT_DIR}output.snvs.vcf.filter.txt \
      --showFiltered
 
-java -jar /opt/GATK4/GenomeAnalysisTK.jar \
+/storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/gatk/GenomeAnalysisTK.jar \
      -R $REF \
      -T VariantsToTable \
      -V ${OUT_DIR}somatic.indels.vcf.txt \

@@ -77,9 +77,9 @@ parse_options()
 
 load_modules()
 {
-	source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
-	source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
-  source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_vep.sh
+	source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+	source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
+    source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_vep.sh
 }
 
 run_UNpairedVC()
@@ -94,7 +94,7 @@ for v_caller in $VCS;do
 
 		germline_varscan $NORMAL_BAM   ${SAMPLE_DIR}/${v_caller}/
 
-    bash /home/pipelines/ngs_test/shell/heme_parseVarScan.sh \
+    bash /storage/apps/pipelines/ngs_test/shell/heme_parseVarScan.sh \
             -s ${SAMPLE_DIR}/${v_caller}/${SAMPLE}.snp.txt \
             -i ${SAMPLE_DIR}/${v_caller}/${SAMPLE}.indel.txt \
             -o ${SAMPLE_DIR}/${v_caller}/  \
@@ -122,12 +122,12 @@ run_pairedVC()
     bash ${DIR_SCRIPT}shell/tmb_VCaller_${v_caller}.sh $SAMPLE $REF_GENOME_1  $NORMAL_BAM  $TUMOR_BAM  ${SAMPLE_DIR}/${v_caller}/  $ENVIRONMENT  $DEPTH  $NALF $TALF
 
     ## parse vc output
-    /opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_parse_${v_caller}.py  "$SAMPLE"  "${SAMPLE_DIR}/${v_caller}/"  "$ENV" "$DEPTH" "$NALF" "$TALF"
+    /storage/apps/opt/python3_4/bin/python3 ${DIR_SCRIPT}python/tmb_parse_${v_caller}.py  "$SAMPLE"  "${SAMPLE_DIR}/${v_caller}/"  "$ENVIRONMENT" "$DEPTH" "$NALF" "$TALF"
 
 	done
 
   # compare all three variants files
-	/opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_compare_samples_3Venn.py   \
+	/storage/apps/opt/python3_4/bin/python3 ${DIR_SCRIPT}python/tmb_compare_samples_3Venn.py   \
 	${SAMPLE_DIR}/varscan/${SAMPLE}.varscan.${DEPTH}_${NALF}_${TALF}  \
 	${SAMPLE_DIR}/strelka/${SAMPLE}.strelka.${DEPTH}_${NALF}_${TALF} \
 	${SAMPLE_DIR}/mutect/${SAMPLE}.mutect.${DEPTH}_${NALF}_${TALF} \
@@ -135,22 +135,22 @@ run_pairedVC()
 
 
 	# # #### combine vcfs from EACH variant caller
-	/opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENVIRONMENT"  "${DEPTH}_${NALF}_${TALF}"
+	/storage/apps/opt/python3_4/bin/python3 ${DIR_SCRIPT}python/tmb_combineVCFs.py  "$SAMPLE"  "$SAMPLE_DIR"  "$ENVIRONMENT"  "${DEPTH}_${NALF}_${TALF}"
 
 
   ###### run VEP
-  update_status "$QUEUEID" "RunningVEP" "$DB" "$USER"  "$PASSWORD"
+  update_status "$QUEUEID" "RunningVEP" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
-	tail -n +2 "${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.${DEPTH}_${NALF}_${TALF}" > ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}
+  tail -n +2 "${SAMPLE_DIR}/${SAMPLE}.variantcallers.combine.${DEPTH}_${NALF}_${TALF}" > ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}
 
   log_info  "running VEP"
 
   vep_94_tmb ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}   ${SAMPLE_DIR}/${SAMPLE}.variantcallers.combinev2.${DEPTH}_${NALF}_${TALF}.vep
 
-  update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD"
+  update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
 	##### FILTER vcfs from all variant callers
-	/opt/python3/bin/python3 ${DIR_SCRIPT}python/tmb_parse_vep.py  "$SAMPLEID" "$SAMPLE"  "$SAMPLE_DIR"  "$ENVIRONMENT"  "${DEPTH}_${NALF}_${TALF}"
+	/storage/apps/opt/python3_4/bin/python3 ${DIR_SCRIPT}python/tmb_parse_vep.py  "$SAMPLEID" "$SAMPLE"  "$SAMPLE_DIR"  "$ENVIRONMENT"  "${DEPTH}_${NALF}_${TALF}"
 
 }
 
@@ -166,11 +166,12 @@ main()
 			exit 1
 	fi
 
-	DIR_SCRIPT="/home/pipelines/ngs_${ENVIRONMENT}/"
-  DB="ngs_${ENVIRONMENT}"
+	DIR_SCRIPT="/storage/apps/pipelines/ngs_${ENVIRONMENT}/"
+  	DB="ngs_${ENVIRONMENT}"
+  	DB_HOST="storage"
 
-	REF_GENOME_1="/home/doc/ref/ref_genome/ucsc.hg19.fasta"
-	REF_GENOME_2="/home/doc/ref/ref_genome/Homo_sapiens.GRCh37.73.dna_sm.primary_assembly.fa"
+	REF_GENOME_1="/storage/database/ngs_doc/reference/ucsc.hg19.fasta"
+	REF_GENOME_2="/storage/database/ngs_doc/reference/Homo_sapiens.GRCh37.73.dna_sm.primary_assembly.fa"
 
   load_modules
 

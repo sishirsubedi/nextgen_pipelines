@@ -23,31 +23,34 @@ vep_83()
 
 vep_94_panel()
 {
-  /opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
+
+  /storage/apps/opt/vep_94/ensembl-vep-release-94/vep \
   -i $1 \
   -o $2 \
   --offline \
-  --dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
+  --dir_cache /storage/apps/opt/vep_94/cache \
   --sift p \
   --polyphen p \
   --hgvs \
   --symbol \
   --vcf \
   --pubmed \
-  --fasta /home/doc/ref/ref_genome/Homo_sapiens.GRCh37.73.dna_sm.primary_assembly.fa \
+  --fasta  /storage/database/ngs_doc/reference/Homo_sapiens.GRCh37.73.dna_sm.primary_assembly.fa \
   --pick_allele \
   --force_overwrite \
   --af \
   --af_1kg
+
 }
 
 vep_94_tmb()
 {
-  /opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
+  /storage/apps/opt/vep_94/ensembl-vep-release-94/vep \
 	-i $1 \
 	-o $2 \
+  --fork 8 \
 	--offline \
-	--dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
+	--dir_cache /storage/apps/opt/vep_94/cache \
 	--vcf \
 	--refseq \
 	--pick_allele \
@@ -58,27 +61,5 @@ vep_94_tmb()
 	--vcf \
 	--pubmed \
   --force_overwrite \
-	--fasta /home/doc/ref/ref_genome/Homo_sapiens.GRCh37.73.dna_sm.primary_assembly.fa
-}
-
-
-snpeff_germline()
-{
- infile=$1
- outfile=$2
- java -Xmx4g -jar /opt/snpeff/snpEff/snpEff.jar -v  hg19  "$infile"  > "$outfile"
-}
-
-vep_germline()
-{
-  /opt/vep_94/ensembl-tools-release-94/vep_94/ensembl-vep/vep \
-	-i $1 \
-	-o $2 \
-	--offline \
-	--dir_cache /opt/vep_94/ensembl-tools-release-94/cache \
-	--vcf \
-        --refseq \
-        --force_overwrite \
-	--fasta /home/doc/ref/ref_genome/Homo_sapiens.GRCh37.73.dna_sm.primary_assembly.fa \
-        --sift b --polyphen b --ccds --uniprot --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --tsl --appris --gene_phenotype 
+	--fasta  /storage/database/ngs_doc/reference/Homo_sapiens.GRCh37.73.dna_sm.primary_assembly.fa
 }

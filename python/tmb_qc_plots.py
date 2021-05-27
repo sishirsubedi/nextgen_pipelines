@@ -87,7 +87,7 @@ if len(sys.argv) > 1:
         plt.title("TMB Assay Control(COLO829) Trendline, Total:"+str(len(scores)))
         plt.ylabel("TMB Score")
         plt.xlabel("Run Number")
-        plt.savefig("/home/environments/"+db+"/assayCommonFiles/tmbAssay/TMB_ControlCOLO829_Scores.png")
+        plt.savefig("/storage/analysis/environments/"+db+"/assayCommonFiles/tmbAssay/TMB_ControlCOLO829_Scores.png")
         plt.close()
 
     connection.close()

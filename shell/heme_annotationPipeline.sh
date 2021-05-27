@@ -76,8 +76,8 @@ parse_options()
 
 load_modules()
 {
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_vep.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_vep.sh
 }
 
 run_vep()
@@ -93,10 +93,28 @@ parse_vep()
 {
   log_info "Parse VEP"
 
-	python ${HOME_PYTHON}parseVEP_v2.py \
-					parseIlluminaNextseq   \
-					-I ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf\
-					-o ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf
+  echo "${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf"
+  echo "${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf"
+
+	/storage/apps/opt/python3/bin/python3  ${HOME_PYTHON}parseVEP_v2.py -m "parseIlluminaNextseq" \
+	-i ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.vcf \
+	-o ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf
+}
+
+filter_vep()
+{
+  log_info "Filtering VEP variants (High/Moderate/>100)"
+
+  shopt -s nocasematch
+  if [[ $SAMPLENAME =~ horizon ]]
+	then
+		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 1 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf \
+		> ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.filter2.vcf
+	else
+		awk '{if(($7=="HIGH" || $7 =="MODERATE") && $10 >= 10 && $10 != "null" && $11 >=100 && $11 != "null") print}' ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf \
+		> ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.filter2.vcf
+	fi
+
 }
 
 filter_amplicon()
@@ -144,28 +162,31 @@ main()
 
     load_modules
 
-		HOME_PYTHON="/home/pipelines/ngs_${ENVIRONMENT}/python/"
-		HOME_SHELL="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
-		DB="ngs_${ENVIRONMENT}"
+	HOME_PYTHON="/storage/apps/pipelines/ngs_${ENVIRONMENT}/python/"
+	HOME_SHELL="/storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/"
+	DB="ngs_${ENVIRONMENT}"
+	DB_HOST="storage"
 
-		log_info " Running illumina pipeline for :
-		dir : $HOME
-		sampleName : $SAMPLENAME
-		environment : $ENVIRONMENT
-		queueID : $QUEUEID "
+	log_info " Running illumina pipeline for :
+	dir : $HOME
+	sampleName : $SAMPLENAME
+	environment : $ENVIRONMENT
+	queueID : $QUEUEID "
 
 
-    update_status "$QUEUEID" "RunningVEP" "$DB" "$USER"  "$PASSWORD"
-		run_vep
-    update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "RunningVEP" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
+	# run_vep
+    update_status "$QUEUEID" "CompletedVEP" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
-		parse_vep
+	# parse_vep
 
-		filter_amplicon
+	# filter_vep
 
-    update_status "$QUEUEID" "UpdatingDatabase" "$DB" "$USER"  "$PASSWORD"
+	# filter_amplicon
 
-		update_db
+    update_status "$QUEUEID" "UpdatingDatabase" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
+
+	update_db
 
 }
 

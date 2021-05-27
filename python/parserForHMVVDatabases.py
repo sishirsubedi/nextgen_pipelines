@@ -138,35 +138,76 @@ def fileParser(infile, outfile, source):
 
     elif source == 'gnomad_lf':
 
-        codes=['AF','AF_afr', 'AF_amr', 'AF_asj', 'AF_eas','AF_fin','AF_nfe','AF_sas','AF_oth','AF_male','AF_female']
-
         vcf = cyvcf2.VCF(infile)
 
+        codes=[ 'DP' , \
+                'AC','AC_AFR','AC_AMR','AC_ASJ','AC_EAS','AC_FIN','AC_NFE','AC_OTH','AC_SAS','AC_Male','AC_Female', \
+               'AF','AF_AFR','AF_AMR','AF_ASJ','AF_EAS','AF_FIN','AF_NFE','AF_OTH','AF_SAS','AF_Male','AF_Female', \
+               'AN','AN_AFR','AN_AMR','AN_ASJ','AN_EAS','AN_FIN','AN_NFE','AN_OTH','AN_SAS','AN_Male','AN_Female', \
+               'GC','GC_AFR','GC_AMR','GC_ASJ','GC_EAS','GC_FIN','GC_NFE','GC_OTH','GC_SAS','GC_Male','GC_Female', \
+               'Hom_AFR','Hom_AMR','Hom_ASJ','Hom_EAS','Hom_FIN','Hom_NFE','Hom_OTH','Hom_SAS','Hom_Male','Hom_Female' ]
+
+
         with open(outfile,"w") as w:
-            header = ['gnomad-id','chr','pos','ref','alt','AF','AF_afr', 'AF_amr', 'AF_asj', 'AF_eas','AF_fin','AF_nfe','AF_sas','AF_oth','AF_male','AF_female']
+            header = ['gnomad-id','chr','pos','ref','alt','qual','filter', \
+                    'DP' , \
+                    'AC','AC_AFR','AC_AMR','AC_ASJ','AC_EAS','AC_FIN','AC_NFE','AC_OTH','AC_SAS','AC_Male','AC_Female', \
+                    'AF','AF_AFR','AF_AMR','AF_ASJ','AF_EAS','AF_FIN','AF_NFE','AF_OTH','AF_SAS','AF_Male','AF_Female', \
+                    'AN','AN_AFR','AN_AMR','AN_ASJ','AN_EAS','AN_FIN','AN_NFE','AN_OTH','AN_SAS','AN_Male','AN_Female', \
+                    'GC','GC_AFR','GC_AMR','GC_ASJ','GC_EAS','GC_FIN','GC_NFE','GC_OTH','GC_SAS','GC_Male','GC_Female', \
+                    'Hom_AFR','Hom_AMR','Hom_ASJ','Hom_EAS','Hom_FIN','Hom_NFE','Hom_OTH','Hom_SAS','Hom_Male','Hom_Female',\
+                    'CSQ']
             bunch=100000
             count=1
             filter=[]
             w.writelines('\t'.join(str(j) for j in header) + '\n')
             for row in vcf:
+                # if not row.FILTER:
+                #     print ('no filter',row.FILTER)
+
                 current =[]
                 current.append(row.ID)
-                current.append('chr'+str(row.CHROM))
+                current.append(row.CHROM)
                 current.append(row.POS)
                 current.append(row.REF)
-                current.append(str(row.ALT).replace(']','').replace('[','').replace("'",''))
+                current.append(row.ALT)
+                current.append(row.QUAL)
+                current.append(row.FILTER)
 
-                for code in codes:
-                    if str(row.INFO.get(code)) == 'None':
-                        current.append(0.0)
-                    else:
-                        current.append(round(row.INFO.get(code)*100,5))
+                if row.CHROM not in ['X','Y']:
+                    for code in codes:
+                        if row.INFO[code]:
+                            current.append(row.INFO[code])
+                        else:
+                            current.append('na')
+                else:
+                    if row.CHROM == 'X':
+                        for code in codes[:34]:
+                            if row.INFO[code]:
+                                current.append(row.INFO[code])
+                            else:
+                                current.append('na')
+                        for code in codes[34:]:
+                            current.append('na')
 
+                    elif row.CHROM == 'Y':
+                        for code in codes[:34]:
+                            if code in ['AC_Male','AC_Female','AF_Male','AF_Female','AN_Male','AN_Female']:
+                                current.append('na')
+                            else:
+                                if row.INFO[code]:
+                                    current.append(row.INFO[code])
+                                else:
+                                    current.append('na')
+                        for code in codes[34:]:
+                            current.append('na')
+
+                current.append(row.INFO['CSQ'].split('|')[:10])
                 filter.append(current)
 
                 if len(filter) == bunch:
-                    print("processed " , count , " hundred thousand rows.")
                     w.writelines('\t'.join(str(j) for j in i) + '\n' for i in filter)
+                    print("processed " , count , " hundred thousand rows.")
                     filter=[]
                     count += 1
             w.writelines('\t'.join(str(j) for j in i) + '\n' for i in filter)
@@ -205,7 +246,7 @@ def fileParser(infile, outfile, source):
             w.close()
 
 
-    elif source =='pmkb':
+    elif source=='pmkb':
         df=pd.read_csv(infile,dtype={"Gene": str, "Tumor Type(s)": str, "Tissue Type(s)":str, "Variant(s)":str})
         df.columns=['gene','tumor_type','tissue_type','variant']
         filter=[]
@@ -249,41 +290,7 @@ def fileParser(infile, outfile, source):
                 df_filter.columns=['gene','tumor_type','tissue_type','variant','variant_lf']
                 df_filter.to_csv(outfile,sep='\t',index=False)
 
-    elif source == 'cardiac':
 
-        import requests
-        from bs4 import BeautifulSoup
-
-
-        cardiac_genes =["ABCC9","ACTC1","ACTN2","ANK2","ANKRD1","CALR3","CASQ2","CAV3","CRYAB","CSRP3","CTF1","DES","DSC2","DSG2","DSP","DTNA", \
-        "EMD","FHL1","FHL2","FXN","GLA","JPH2","JUP","KCNE1","KCNE2","KCNH2","KCNJ2","KCNQ1","KLF10","LAMA4","LAMP2","LDB3","LMNA","MYBPC3","MYH6",\
-        "MYH7","MYL2","MYL3","MYLK2","MYOM1","MYOZ2","MYPN","NEXN","OBSCN","PDLIM3",\
-        "PKP2","PLN","PRKAG2","RBM20","RYR2","SCN5A","SGCD","SRI","TAZ","TCAP","TGFB3","TMEM43","TNNC1","TNNI3","TNNT2","TPM1","TRIM54","TRIM55","TRIM63","TTN","TTR","VCL"]
-
-
-        for gene in cardiac_genes:
-            print("processing...."+gene)
-            url = 'http://www.cardiodb.org/acgv/acgv_exac_variants.php?gene='+gene+'&vartype=all'
-            page = requests.get(url)
-            soup = BeautifulSoup(page.content, 'html.parser')
-            tbl = soup.find("table",{"id":"gene_variants"})
-            df = pd.read_html(str(tbl),flavor='html5lib')[0]
-            df = df.iloc[1:,[1,2,3,4]]
-            df.to_csv(gene+".csv",index=False)
-
-        df_combine = pd.DataFrame()
-        for gene in cardiac_genes:
-            df = pd.read_csv(gene+".csv")
-            df.columns=["genomic_coordinate","cds_variant","protein_variant","variant_type"]
-            df["gene"]=gene
-            df = df[["gene","genomic_coordinate","cds_variant","protein_variant","variant_type"]]
-
-            if gene=="ABCC9":
-                df_combine = df
-            else:
-                df_combine = df_combine.append(df)
-
-        df_combine.to_csv(outfile,sep='\t',index=False)
 
 try:
     parser = optparse.OptionParser()

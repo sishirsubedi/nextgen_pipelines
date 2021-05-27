@@ -64,4 +64,4 @@ try:
 	convert(input, output)	
 	
 except TypeError:
-	print 'python varScan2vcf.py -help for help'
+	print ("python varScan2vcf.py -help for help")

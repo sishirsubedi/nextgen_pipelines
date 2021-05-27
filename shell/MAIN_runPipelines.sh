@@ -67,8 +67,8 @@ parse_options()
 
 load_modules()
 {
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/runBcl2fastqPipeline.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/runBcl2fastqPipeline.sh
 }
 
 update_status_host()
@@ -77,7 +77,7 @@ user=$4
 password=$5
 database=$3
 insertstatement="INSERT INTO pipelineStatus (queueID, plStatus, timeUpdated) VALUES ('$1','$2',now());"
-mysql  --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
+mysql  --host=$DB_HOST --user="$user" --password="$password" --database="$database" --execute="$insertstatement"
 }
 
 # ##############################################################################
@@ -109,7 +109,7 @@ check_db_queue()
 
 	   ##update sampleAnalysisQueue table and set status of this queue to 1 i.e started processing
 	   updatestatement="update pipelineQueue SET status=1 where queueID = $queueID;"
-		 mysql  --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
+		 mysql  --host=$DB_HOST --database="$DB" --user="$USER" --password="$PASSWORD" --execute="$updatestatement"
 
      if [ "$instrument" == "proton" ] ; then
 
@@ -136,7 +136,7 @@ check_db_queue()
      fi
 
 
-  done < <(mysql --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$status_query_statement" -N)
+  done < <(mysql --host=$DB_HOST --database="$DB"  --user="$USER" --password="$PASSWORD"  --execute="$status_query_statement" -N)
 
 }
 
@@ -168,7 +168,10 @@ submit_jobs_proton()
 
     home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/"
 
-    runFolder=$(ls -d /home/${instrument}/*$runID)
+    echo "preping to create dir"
+    echo $home_analysis_instrument
+
+    runFolder=$(ls -d /storage/instruments/${instrument}/*$runID)
     runName=${runFolder##*/}
 
     create_dir ${home_analysis_instrument}$runName
@@ -192,9 +195,13 @@ submit_sample_illumina()
   assay=$4
   sampleName=$5
 
-  runFolder=$(ls -d /home/$instrument/*_"$runID"_*)
-  runName=${runFolder##/home/$instrument/}
+  runFolder=$(ls -d /storage/instruments/$instrument/*_"$runID"_*)
+  runName=$(basename $runFolder)
   home_analysis_instrument="${HOME_ANALYSIS}${instrument}Analysis/${assay}Assay/"
+
+
+  echo "preping to create dir"
+  echo $home_analysis_instrument
 
   create_dir "${home_analysis_instrument}$runName"
   create_dir "${home_analysis_instrument}${runName}/$sampleName"
@@ -205,15 +212,8 @@ submit_sample_illumina()
 
   if [ $assay == "heme" ] ; then
 
-    /opt/torque/bin/qsub -d ${working_dir} -l "walltime=25:00:00,nodes=1:ppn=4"   \
-         -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
+    /opt/pbs/bin/qsub -v r=$runID s=$sampleName a=$assay i=$instrument e=$ENVIRONMENT q=$queueID u=$USER p=$PASSWORD \
          ${HOME_SHELL}illuminaPipelineInterface.sh
-
-  elif [ $assay == "cardiac_exome" ] ; then
-
-    /opt/torque/bin/qsub -d ${working_dir} -l "walltime=25:00:00,nodes=1:ppn=4"   \
-        -F "-r$runID -s$sampleName -a$assay -i$instrument -e$ENVIRONMENT -q$queueID -u$USER -p$PASSWORD" \
-        ${HOME_SHELL}illuminaPipelineInterface.sh
 
   elif [ $assay == "tmb" ] ; then
 
@@ -243,7 +243,7 @@ process_sample_llumina()
   log_info "current sample - $queueID ; $runID ; $instrument ; $assay ; $sampleName"
 
   stausCheck="select pipelineStatusBcl2Fastq.status from pipelineStatusBcl2Fastq join instruments on pipelineStatusBcl2Fastq.instrumentID = instruments.instrumentID where pipelineStatusBcl2Fastq.runID='$runID' and instruments.instrumentName='$instrument'"
-  fastqStatus=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "$stausCheck")
+  fastqStatus=$(mysql --host=$DB_HOST --user="$USER" --password="$PASSWORD" --database="$DB" -se "$stausCheck")
 
   log_info "current fastqStatus - $fastqStatus, $queueID ; $runID ; $instrument ; $assay ; $sampleName"
 
@@ -268,7 +268,7 @@ process_sample_llumina()
 
           sleep 1h
 
-          fastqStatus_r2=$(mysql --user="$USER" --password="$PASSWORD" --database="$DB" -se "$stausCheck")
+          fastqStatus_r2=$(mysql --host=$DB_HOST --user="$USER" --password="$PASSWORD" --database="$DB" -se "$stausCheck")
 
           log_info "checking bcl2fastq status -- $fastqStatus_r2, run-$runID , sample- $sampleName"
 
@@ -284,7 +284,7 @@ process_sample_llumina()
 
     else
       updatestatement="UPDATE pipelineQueue SET pipelineQueue.status=0 WHERE queueID = $queueID;"
-      mysql --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
+      mysql --host=$DB_HOST --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$updatestatement"
 
       log_info  "bcl2fastq_wait,  run-$runID , sample- $sampleName"
       update_status_host "$queueID" "bcl2fastq_wait" "$DB" "$USER"  "$PASSWORD"
@@ -335,18 +335,19 @@ main()
 
     load_modules
 
-		HOME="/home/pipelines/ngs_${ENVIRONMENT}/"
+		HOME="/storage/apps/pipelines/ngs_${ENVIRONMENT}/"
 		HOME_RUN="${HOME}run_files/"
 		HOME_SHELL="${HOME}shell/"
-    HOME_ANALYSIS="/home/environments/ngs_${ENVIRONMENT}/"
+    HOME_ANALYSIS="/storage/analysis/environments/ngs_${ENVIRONMENT}/"
 		DB="ngs_${ENVIRONMENT}"
-    DB_HOST="hhplabngsp01"
+    DB_HOST="10.110.21.20"
 		CURRENTDT=`date '+%Y_%m_%d_%H_%M_%S'`
 
 
     # ##########################################################################
     # workflows
     # ##########################################################################
+
     check_db_queue
 
 		submit_jobs_proton

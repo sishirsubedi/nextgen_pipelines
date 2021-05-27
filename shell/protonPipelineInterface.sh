@@ -99,16 +99,16 @@ parse_options()
 
 load_modules()
 {
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
 }
 
 create_rundate()
 {
   declare -A months
   months=( ["Jan"]="01" ["Feb"]="02" ["Mar"]="03" ["Apr"]="04" ["May"]="05" ["Jun"]="06" ["Jul"]="07" ["Aug"]="08" ["Sep"]="09" ["Oct"]="10" ["Nov"]="11" ["Dec"]="12" )
-  if [ -f /home/${INSTRUMENT}/*"$RUNID"/InitLog.txt ]
+  if [ -f /storage/instruments/${INSTRUMENT}/*"$RUNID"/InitLog.txt ]
   then
-  	runDate=$(head -n 1 /home/${INSTRUMENT}/*"$RUNID"/InitLog.txt)
+  	runDate=$(head -n 1 /storage/instruments/${INSTRUMENT}/*"$RUNID"/InitLog.txt)
   	year1=$(echo $runDate |cut -d ' ' -f 5)
   	year=${year1%:}
   	day=$(echo $runDate |cut -d ' ' -f 3)
@@ -123,12 +123,12 @@ create_rundate()
 
 prep_neuro()
 {
-  NEURO_EXCLUDED_DESIGN="/home/doc/ref/neuralRef/IAD87786_179_Designed.excluded.bed"
+  NEURO_EXCLUDED_DESIGN="/storage/database/ngs_doc/neural/IAD87786_179_Designed.excluded.bed"
 
   #bedtools -u flag to write original A entry once if any overlaps found in B
-  /opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $PROTON_VCF -b $NEURO_EXCLUDED_DESIGN > ${HOME}${CALLERID}/TSVC_variants.filter.vcf
+  /storage/apps/opt/bedtools/bedtools2_17/bin/bedtools intersect -u -a $PROTON_VCF -b $NEURO_EXCLUDED_DESIGN > ${HOME}${CALLERID}/TSVC_variants.filter.vcf
 
-  NEURO_EXCLUDED_AMPLICON="/home/doc/ref/neuralRef/excludedAmplicon.txt"
+  NEURO_EXCLUDED_AMPLICON="/storage/database/ngs_doc/neural/excludedAmplicon.txt"
   # -v means "invert the match" in grep, in other words, return all non matching lines.
   grep -v -f $NEURO_EXCLUDED_AMPLICON $PROTON_AMPLICON > ${HOME}${COVERAGEID}/amplicon.filter.txt
 
@@ -168,25 +168,26 @@ main()
 		############################################################################
     load_modules
 
-		VARIANTFOLDER=$(ls -d /home/${INSTRUMENT}/*${RUNID}/plugin_out/"$CALLERID")
+	VARIANTFOLDER=$(ls -d /storage/instruments/${INSTRUMENT}/*${RUNID}/plugin_out/"$CALLERID")
     PROTON_VCF="$VARIANTFOLDER/${SAMPLENAME}/TSVC_variants.vcf"
 
-    AMPLICONFOLDER=$(ls -d /home/${INSTRUMENT}/*${RUNID}/plugin_out/"$COVERAGEID")
+    AMPLICONFOLDER=$(ls -d /storage/instruments/${INSTRUMENT}/*${RUNID}/plugin_out/"$COVERAGEID")
     PROTON_AMPLICON=$(ls $AMPLICONFOLDER/${SAMPLENAME}/*.amplicon.cov.xls)
 
-    RUNFOLDER=$(ls -d /home/${INSTRUMENT}/*$RUNID)
-		RUNNAME=${RUNFOLDER##*/}
+    RUNFOLDER=$(ls -d /storage/instruments/${INSTRUMENT}/*$RUNID)
+	RUNNAME=$(basename $RUNFOLDER)
 
-    HOME="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${RUNNAME}/${SAMPLENAME}/"
-		HOME_SHELLDIR="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
+    HOME="/storage/analysis/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${RUNNAME}/${SAMPLENAME}/"
+	HOME_SHELLDIR="/storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/"
 
     DB="ngs_${ENVIRONMENT}"
+	DB_HOST="storage"
 
-		create_dir ${HOME}$CALLERID
-		create_dir ${HOME}$COVERAGEID
+	create_dir ${HOME}$CALLERID
+	create_dir ${HOME}$COVERAGEID
 
-		exec >  >(tee -a ${HOME}process.log)
-		exec 2> >(tee -a ${HOME}process.log >&2)
+	exec >  >(tee -a ${HOME}process.log)
+	exec 2> >(tee -a ${HOME}process.log >&2)
 
     show_pbsinfo
 
@@ -203,15 +204,15 @@ main()
 
     create_rundate
 
-		if [ $ASSAY == "neuro" ] ; then
-			prep_neuro
-		elif [ $ASSAY == "gene50" ] ; then
-			prep_gene50
-		fi
+	if [ $ASSAY == "neuro" ] ; then
+		prep_neuro
+	elif [ $ASSAY == "gene50" ] ; then
+		prep_gene50
+	fi
 
     log_info "Preparation for $ASSAY assay completed."
 
-    update_status "$QUEUEID" "started" "$DB" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "started" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
     run_protonPipeline
 }

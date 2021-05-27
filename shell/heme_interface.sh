@@ -83,9 +83,9 @@ parse_options()
 
 load_modules()
 {
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_align.sh
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_align.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
 }
 
 create_rundate()
@@ -104,10 +104,11 @@ create_rundate()
 
 heme_run_alignment()
 {
-  update_status "$QUEUEID" "Trimming" "$DB" "$USER"  "$PASSWORD"
+
+  update_status "$QUEUEID" "Trimming" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
   log_info "Running Trimmomatic: Removing sequences < Q20 sample- $SAMPLENAME"
-	trimmomatic="java -jar /opt/trimmomatic/Trimmomatic-0.33/trimmomatic-0.33.jar PE -phred33 -threads 8 \
+	trimmomatic="/storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/trimmomatic/Trimmomatic-0.33/trimmomatic-0.33.jar PE -phred33 -threads 32 \
 	$FASTQ_R1 \
 	$FASTQ_R2 \
 	${HOME_ANALYSIS}variantCaller/${SAMPLENAME}_filt_paired_R1_001.fastq.gz \
@@ -117,15 +118,15 @@ heme_run_alignment()
 	TRAILING:20 \
 	AVGQUAL:20 \
 	SLIDINGWINDOW:10:20 \
-	MINLEN:80 \
+	MINLEN:30 \
   HEADCROP:20 "
 	($trimmomatic) 2>&1 | tee ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.trimmomatic.summary.txt
 
 
   ### alignment ########
-  update_status "$QUEUEID" "Alignment" "$DB" "$USER"  "$PASSWORD"
+  update_status "$QUEUEID" "Alignment" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
   log_info "Running bwa mem aligner: $SAMPLENAME"
-  heme_bwaSWAlign $SAMPLENAME  \
+  tmb_bwaAlign $SAMPLENAME  \
 	$REF_GENOME  \
 	$MAP_QUALITY \
 	${HOME_ANALYSIS}variantCaller/${SAMPLENAME}_filt_paired_R1_001.fastq.gz \
@@ -134,34 +135,35 @@ heme_run_alignment()
 	${HOME_ANALYSIS}process.log
 
   log_info "Generating sort bam by coordinate sample- $SAMPLENAME"
-  java -jar /opt/picard2/picard.jar SortSam \
+  /storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/picard/picard.jar SortSam \
             I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.bam  \
             O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  \
             SORT_ORDER=coordinate
 
   log_info "Generating alignment stat sample- $SAMPLENAME"
-  java -jar /opt/picard2/picard.jar CollectAlignmentSummaryMetrics \
+  /storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/picard/picard.jar CollectAlignmentSummaryMetrics \
             R=$REF_GENOME \
             I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam \
             O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam.alignmentMetrics.txt
 
   log_info "Generating bam index sample- $SAMPLENAME"
-  java -jar /opt/picard2/picard.jar BuildBamIndex \
+  /storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/picard/picard.jar BuildBamIndex \
             I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam
 
-  log_info "Generating CalculateHsMetrics sample- $SAMPLENAME "
-  java -jar /opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
-            I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  \
-            O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.output_hs_metrics.txt \
-            R=$REF_GENOME \
-            BAIT_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/hemeAssay/myeloid_design.interval_list \
-            TARGET_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/hemeAssay/myeloid_design.interval_list
+  ## commented out for now b/c uses old picard that needs to bring from old storage
+  # log_info "Generating CalculateHsMetrics sample- $SAMPLENAME "
+  # /storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/picard/picard-tools-1.134/picard.jar CalculateHsMetrics \
+  #           I=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  \
+  #           O=${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.output_hs_metrics.txt \
+  #           R=$REF_GENOME \
+  #           BAIT_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/hemeAssay/myeloid_design.interval_list \
+  #           TARGET_INTERVALS= /home/environments/ngs_${ENVIRONMENT}/assayCommonFiles/hemeAssay/myeloid_design.interval_list
 
 
   if [ ! -f "${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam" ] ; then
 
     log_error "ERROR:Alignment output file not found"
-    update_status "$QUEUEID" "ERROR:Alignment" "$DB" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "Trimming" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
     exit
 
   else
@@ -174,11 +176,12 @@ heme_run_alignment()
 
 heme_run_variantCaller()
 {
+
   log_info "Running variant calling for - $SAMPLENAME"
 
 	VCS=( "varscan" "mutect" "freebayes" )
 
-  update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
+  update_status "$QUEUEID" "Trimming" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
 	for v_caller in "${VCS[@]}";do
 
@@ -192,16 +195,16 @@ heme_run_variantCaller()
               -s ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.snp.varscan.output \
               -i ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.indel.varscan.output \
               -o ${HOME_ANALYSIS}variantCaller/  \
-              -f ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.varscan.vcf  \
-              -e $ENVIRONMENT
+              -f ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.varscan.vcf \
+              -e ${ENVIRONMENT}
 
     elif [[ "$v_caller" == "freebayes" ]];then
 
       log_info "Starting :  $v_caller "
 
-      /opt/freebayes2/freebayes/bin/freebayes -f $REF_GENOME   ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  > ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.freebayes.output
+      /storage/apps/opt/freebayes/bin/freebayes -f $REF_GENOME   ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam  > ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.freebayes.output
 
-      java -jar /opt/GATK4/GenomeAnalysisTK.jar \
+      /storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/gatk/GenomeAnalysisTK.jar \
            -R $REF_GENOME \
            -T VariantsToTable \
            --showFiltered \
@@ -215,14 +218,14 @@ heme_run_variantCaller()
 
       log_info "Starting :  $v_caller "
 
-      java  -jar /opt/GATK4/GenomeAnalysisTK.jar \
+      /storage/apps/opt/java/jdk1.8.0_191/bin/java  -jar /storage/apps/opt/gatk/GenomeAnalysisTK.jar \
             -T MuTect2 \
             -R $REF_GENOME \
             -I:tumor ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam   \
             -o ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.mutect.output
 
 
-      java  -jar /opt/GATK4/GenomeAnalysisTK.jar \
+      /storage/apps/opt/java/jdk1.8.0_191/bin/java  -jar /storage/apps/opt/gatk/GenomeAnalysisTK.jar \
             -R $REF_GENOME \
             -T VariantsToTable \
             --showFiltered \
@@ -238,19 +241,12 @@ heme_run_variantCaller()
 
 heme_selects_variants()
 {
-  ## generate variants present in at least 2 out of 3 VCs
-  /opt/python3/bin/python3   ${HOME_PYTHONDIR}heme_selectHQVariants.py "${HOME_ANALYSIS}variantCaller/"  "$SAMPLENAME"  "${SAMPLENAME}.combine_VC2of3.vcf"
+   /storage/apps/opt/python3/bin/python3   ${HOME_PYTHONDIR}heme_selectHQVariants.py \
+        ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.varscan.vcf \
+        ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.mutect.vcf \
+        ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.freebayes.vcf \
+        ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.combine.vcf \
 
-  ## use "${SAMPLENAME}.combine_VC2of3.vcf" file from above
-  ## Filter variants BETWEEN 5-10% with db check and everything above 10% VAF
-  /opt/python3/bin/python3   ${HOME_PYTHONDIR}heme_select5P_HQVariants.py  \
-        -u $USER \
-        -p $PASSWORD \
-        -d $DB \
-        -b $DB_HOST \
-        -f "${HOME_ANALYSIS}variantCaller/"  \
-        -s $SAMPLENAME \
-        -o "${SAMPLENAME}.combine.vcf" 
 }
 
 # ##############################################################################
@@ -271,22 +267,22 @@ main()
 
     load_modules
 
-    RUNFOLDER=$(ls -d /home/$INSTRUMENT/*_"$RUNID"_*)
-    RUNNAME=${RUNFOLDER##/home/$INSTRUMENT/}
+    RUNFOLDER=$(ls -d /storage/instruments/$INSTRUMENT/*_"$RUNID"_*)
+    RUNNAME=$(basename $RUNFOLDER)
 
-    HOME_CODE="/home/pipelines/ngs_${ENVIRONMENT}/"
+    HOME_CODE="/storage/apps/pipelines/ngs_${ENVIRONMENT}/"
     HOME_RUNDIR="${HOME_CODE}run_files/"
     HOME_SHELLDIR="${HOME_CODE}shell/"
     HOME_PYTHONDIR="${HOME_CODE}python/"
     DB="ngs_${ENVIRONMENT}"
-    DB_HOST="hhplabngsp01"
+    DB_HOST="storage"
 
-    HOME_ANALYSIS="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${ASSAY}Assay/${RUNNAME}/${SAMPLENAME}/"
+    HOME_ANALYSIS="/storage/analysis/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${ASSAY}Assay/${RUNNAME}/${SAMPLENAME}/"
 
     FASTQ_R1=$RUNFOLDER/out1/"$SAMPLENAME"*_R1_001.fastq.gz
     FASTQ_R2=${FASTQ_R1/_R1_/_R2_}      #replace "R1" with "R2"
-    REF_GENOME="/home/doc/ref/ref_genome/ucsc.hg19.fasta"
-    MAP_QUALITY="20"
+    REF_GENOME="/storage/database/ngs_doc/reference/ucsc.hg19.fasta"
+    MAP_QUALITY="30"
 
     log_info " Running heme interface for :
 		assay : $ASSAY

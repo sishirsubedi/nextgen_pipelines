@@ -101,30 +101,26 @@ def parseIlluminaNextseq(infile, outfile):
 	outfile.close()
 
 try:
+	parser = optparse.OptionParser()
+	parser.add_option('-m', '--mode',help = 'input instrument')
+	parser.add_option('-i', '--vcfInfile',help = 'input vcf file')
+	parser.add_option('-o', '--outfile', help = 'output file')
 
-	if sys.argv[1] == "parseIonNewVarView":
-		parser = optparse.OptionParser()
-		parser.add_option('-I', '--vcfInfile',
-		help = 'input vcf file')
-		parser.add_option('-o', '--outfile',
-		help = 'output file')
-		options,args = parser.parse_args()
-		infile = options.vcfInfile
-		outfile = options.outfile
+	options,args = parser.parse_args()
+
+	mode = options.mode
+	infile = options.vcfInfile
+	outfile = options.outfile
+
+	print(mode)
+	print(infile)
+	print(outfile)
+	if mode == "parseIlluminaNextseq":
+		parseIlluminaNextseq(infile, outfile)
+	elif mode == "parseIonNewVarView":
 		parseIonNewVarView(infile, outfile)
 
-
-	if sys.argv[1] == "parseIlluminaNextseq":
-		parser = optparse.OptionParser()
-		parser.add_option('-I', '--vcfInfile',
-		help = 'input vcf file')
-		parser.add_option('-o', '--outfile',
-		help = 'output file')
-		options,args = parser.parse_args()
-		infile = options.vcfInfile
-		outfile = options.outfile
-		parseIlluminaNextseq(infile, outfile)
 except IndexError:
-	print "Usage:"
-	print "python parseVEP.py parseIonNewVarView -h"
-	print "python parseVEP.py parseIlluminaNextseq -h"
+	print("Usage:")
+	print("python parseVEP.py parseIonNewVarView -h")
+	print("python parseVEP.py parseIlluminaNextseq -h")

@@ -58,6 +58,12 @@ then
 
 	bamFile=$(ls -f /home/$instrument/*$runID/plugin_out/$callerID/"$sampleName"_*.bam)
 
+elif [ $instrument == "pgm" ]
+then
+
+	bamFile=$(ls -f /home/$instrument/*$runID/plugin_out/$callerID/"$sampleName"_*.bam)
+
+
 elif [ $instrument == "nextseq" ]
 then
 

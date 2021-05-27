@@ -65,5 +65,5 @@ if len(sys.argv) > 1:
 	fields = options.fields
 	splitVcf(infile, outfile, fields)
 else:
-	print "split multiple alt alleles into seperate lines.  Only the first 8 columns are retained in output file"
-	print "For more Usage info: python splitVcf.py -h"
+	print ("split multiple alt alleles into seperate lines.  Only the first 8 columns are retained in output file")
+	print ("For more Usage info: python splitVcf.py -h")

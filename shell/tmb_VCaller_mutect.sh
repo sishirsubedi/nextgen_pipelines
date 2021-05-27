@@ -27,45 +27,45 @@ TUMOR_BAM_CHR=$(echo $TUMOR_BAM | sed -e "s/$suffix$//" )
 
 
 # # #### create chromosome bam using bamtools
-normal_split="/opt/bamtools/bamtools/bin/bamtools split -in  $NORMAL_BAM -reference"
-tumor_split="/opt/bamtools/bamtools/bin/bamtools split -in  $TUMOR_BAM -reference"
-(echo $tumor_split; echo $normal_split) | /opt/parallel/bin/parallel
+normal_split="/storage/apps/opt/bamtools/bamtools_v2_5_1/bin/bamtools split -in  $NORMAL_BAM -reference"
+tumor_split="/storage/apps/opt/bamtools/bamtools_v2_5_1/bin/bamtools split -in  $TUMOR_BAM -reference"
+(echo $tumor_split; echo $normal_split) | /storage/apps/opt/parallel/bin/parallel 
 
 
 if [ -f  ${OUT_DIR}active_chromosomes.txt ]; then
    rm -f ${OUT_DIR}active_chromosomes.txt
 fi
 
-####index all chr specific bam files and also prepare chromosome text file for parallel
+###index all chr specific bam files and also prepare chromosome text file for parallel
 for chr in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y; do
 
   echo ${NORMAL_BAM_CHR}.REF_chr${chr}.bam
   echo ${TUMOR_BAM_CHR}.REF_chr${chr}.bam
 
-  normal_index="/opt/samtools19/bin/samtools index ${NORMAL_BAM_CHR}.REF_chr${chr}.bam"
-  tumor_index="/opt/samtools19/bin/samtools index ${TUMOR_BAM_CHR}.REF_chr${chr}.bam"
+  normal_index="/storage/apps/opt/samtools/bin/samtools index ${NORMAL_BAM_CHR}.REF_chr${chr}.bam"
+  tumor_index="/storage/apps/opt/samtools/bin/samtools index ${TUMOR_BAM_CHR}.REF_chr${chr}.bam"
 
-  (echo $tumor_index; echo $normal_index) | /opt/parallel/bin/parallel
+  (echo $tumor_index; echo $normal_index) | /storage/apps/opt/parallel/bin/parallel 
 
   echo $chr >> ${OUT_DIR}active_chromosomes.txt
 
 done
 
 
-# run gatk in parallel
-cat ${OUT_DIR}active_chromosomes.txt | /opt/parallel/bin/parallel  --jobs 8 " java -jar /opt/GATK4/GenomeAnalysisTK.jar \
+run gatk in parallel
+/storage/apps/opt/parallel/bin/parallel  -a ${OUT_DIR}active_chromosomes.txt  --jobs 24 " /storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/gatk/GenomeAnalysisTK.jar \
                                     -T MuTect2 \
                                     -R $REF \
                                     -I:tumor ${TUMOR_BAM_CHR}.REF_chr{}.bam \
                                     -I:normal ${NORMAL_BAM_CHR}.REF_chr{}.bam \
                                     -o ${OUT_DIR}chr{}_gatk.output.vcf \
-                                    -L chr{} \
+                                    -L {} \
                                     --min_base_quality_score 30 "
 
 
 
 for chr in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y; do
-  java -jar /opt/GATK4/GenomeAnalysisTK.jar \
+  /storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/gatk/GenomeAnalysisTK.jar \
        -R $REF \
        -T VariantsToTable \
        -V ${OUT_DIR}chr"$chr"_gatk.output.vcf \

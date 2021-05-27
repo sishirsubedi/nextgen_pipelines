@@ -83,23 +83,21 @@ parse_options()
 
 load_modules()
 {
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
 }
 
 get_IDs()
 {
-  getids_statement="select samples.sampleID, samples.runID, instruments.instrumentName, assays.assayName from pipelineQueue \
+  getids_statement="select samples.sampleID, samples.runID, instruments.instrumentName from pipelineQueue \
   join samples on samples.sampleID=pipelineQueue.sampleID \
   join instruments on instruments.instrumentID = samples.instrumentID \
-  join assays on assays.assayID = samples.assayID \
   where pipelineQueue.queueID='$QUEUEID';"
 
-  while  read -r sampleID runID instrument assay ; do
+  while  read -r sampleID runID instrument ; do
 
      SAMPLEID="$sampleID"
      RUNID="$runID"
      INSTRUMENT="$instrument"
-     ASSAY="$assay"
 
   done < <(mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$getids_statement" -N)
 
@@ -113,43 +111,21 @@ load_variants()
 
        variantfile=$(ls ${HOME}${CALLERID}/TSVC_variants.filter.split.vep.parse.filter.txt)
 
-       variantstatement="load data local infile '$variantfile' into table sampleVariants (gene, exon, chr, pos, ref, alt, impact, type, quality, altFreq, readDepth, altReadDepth, consequence, Sift, PolyPhen, HGVSc, HGVSp, dbSNPID, pubmed) set sampleID = '$SAMPLEID'"
-
-       mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$variantstatement"
-
-
    elif [ "$INSTRUMENT" == "nextseq" ] ; then
 
-     log_info "instrument is  $INSTRUMENT "
-     log_info "assay is  $ASSAY "
-
-
-        if [ "$ASSAY" == "cardiac_exome" ] ; then
-          variantfile=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.mutect.annotated.vcf)
-
-          variantstatement="load data local infile '$variantfile' into table sampleVariantsGermline FIELDS TERMINATED BY '\t' IGNORE 1 LINES (gene, exon, chr, pos, ref, alt, impact, type, quality, altFreq, readDepth, altReadDepth,
-          consequence, HGVSc, HGVSp, STRAND, ALT_TRANSCRIPT_START, ALT_TRANSCRIPT_END, ALT_VARIANT_POSITION ,
-          feature , gnomad_GAF ,
-          protein_id,protein_type,protein_feature,protein_note,protein_start,protein_end,
-          nextprot , uniprot_id , pfam , scoop , uniprot_variant , expasy_id , revel , cadd_phred , canonical , sift , polyphen )  set sampleID = '$SAMPLEID' "
-
-          mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$variantstatement"
-
-        else
-          variantfile=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf)
-
-          variantstatement="load data local infile '$variantfile' into table sampleVariants (gene, exon, chr, pos, ref, alt, impact, type, quality, altFreq, readDepth, altReadDepth, consequence, Sift, PolyPhen, HGVSc, HGVSp, dbSNPID, pubmed) set sampleID = '$SAMPLEID'"
-
-          mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$variantstatement"
-
-        fi
+       variantfile=$(ls ${HOME}variantAnalysis/${SAMPLENAME}.filter.vep.parse.vcf)
    fi
 
    if [ ! -f $variantfile ]; then
-     update_status "$QUEUEID" "ERROR:VariantFile" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+     update_status "$QUEUEID" "ERROR:VariantFile" "$ENVIRONMENT" "$USER"  "$PASSWORD" "$DB_HOST"
      log_error "Analsysis variant file not found !"
   	 exit 1
    fi
+
+   variantstatement="load data local infile '$variantfile' into table sampleVariants (gene, exon, chr, pos, ref, alt, impact, type, quality, altFreq, readDepth, altReadDepth, consequence, Sift, PolyPhen, HGVSc, HGVSp, dbSNPID, pubmed) set sampleID = '$SAMPLEID'"
+
+   mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$variantstatement"
+
 }
 
 load_amplicons()
@@ -159,7 +135,7 @@ load_amplicons()
 
     if [ "$INSTRUMENT" == "proton" ] ; then
 
-      /opt/python3/bin/python3 ${HOME_PYTHON}loadSampleAmplicons.py \
+      /storage/apps/opt/python3/bin/python3  ${HOME_PYTHON}loadSampleAmplicons.py \
       -i ${HOME}${COVERAGEID}/amplicon.filter.txt \
       -o ${HOME}${COVERAGEID}/amplicon.filter.filter2.txt \
       -s $SAMPLEID \
@@ -169,7 +145,7 @@ load_amplicons()
 
     elif [ "$INSTRUMENT" == "nextseq" ] ; then
 
-      /opt/python3/bin/python3 ${HOME_PYTHON}loadSampleAmplicons.py \
+      /storage/apps/opt/python3/bin/python3  ${HOME_PYTHON}loadSampleAmplicons.py \
       -i ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.filter2.txt \
       -o ${HOME}variantAnalysis/${SAMPLENAME}.amplicon.filter.filter2.filter3.txt\
       -s $SAMPLEID \
@@ -181,7 +157,7 @@ load_amplicons()
 
 
   	if [ ! -f $ampliconfile ]; then
-           update_status "$QUEUEID" "ERROR:AmpliconFile" "$ENVIRONMENT" "$USER"  "$PASSWORD"
+           update_status "$QUEUEID" "ERROR:AmpliconFile" "$ENVIRONMENT" "$USER"  "$PASSWORD" "$DB_HOST"
   		 		 log_error "Analsysis amplicon file not found !"
   		 		exit
   	fi
@@ -233,16 +209,15 @@ main()
 
     load_modules
 
-		HOME_PYTHON="/home/pipelines/ngs_${ENVIRONMENT}/python/"
-		HOME_SHELL="/home/pipelines/ngs_${ENVIRONMENT}/shell/"
+		HOME_PYTHON="/storage/apps/pipelines/ngs_${ENVIRONMENT}/python/"
+		HOME_SHELL="/storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/"
 		DB="ngs_${ENVIRONMENT}"
-    DB_HOST="hhplabngsp01"
+    DB_HOST="storage"
 
 
     SAMPLEID=""
     RUNID=""
     INSTRUMENT=""
-    ASSAY=""
 
     get_IDs
 
@@ -256,11 +231,11 @@ main()
 
     load_variants
 
-    # load_amplicons
+    load_amplicons
 
     email_user
 
-    update_status "$QUEUEID" "PipelineCompleted" "$DB" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "PipelineCompleted" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
 }
 

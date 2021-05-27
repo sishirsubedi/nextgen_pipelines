@@ -5,7 +5,7 @@
 #
 #DESCRIPTION: This script is run to generate required files
 #             for heme and tumor mutation burden assays.
-# REQUIREMENTS: MAIN_runPipelines.sh
+# REQUIREMENTS: runPipelines.sh
 # COMPANY:Houston Methodist Hospital, Molecular Diagnostic Laboratory
 #===============================================================================
 
@@ -88,9 +88,9 @@ parse_options()
 
 load_modules()
 {
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_align.sh
-      source /home/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_utils.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_align.sh
+      source /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/modules/ngs_varscan.sh
 }
 
 create_rundate()
@@ -109,7 +109,8 @@ create_rundate()
 
 heme_generate_variantFile()
 {
-  bash /home/pipelines/ngs_${ENVIRONMENT}/shell/heme_interface.sh \
+
+  bash /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/heme_interface.sh \
       -r $RUNID \
       -s $SAMPLENAME \
       -a $ASSAY \
@@ -124,9 +125,9 @@ heme_generate_variantFile()
 
 heme_generate_ampliconFile()
 {
-      HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
+      HEME_EXCLUDED_DESIGN="/storage/database/ngs_doc/heme/trusight-myeloid-amplicon-track.excluded.bed"
 
-      /opt/samtools-1.4/samtools-1.4/samtools bedcov  $HEME_EXCLUDED_DESIGN  ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth
+      /storage/apps/opt/samtools/bin/samtools bedcov  $HEME_EXCLUDED_DESIGN  ${HOME_ANALYSIS}variantCaller/${SAMPLENAME}.sort.bam | awk ' {print $4,"\t",int($13/($8-$7))} ' > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth
 
       AMPLICON_FILE=$(ls ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.samtools.coverageDepth)
 
@@ -134,7 +135,7 @@ heme_generate_ampliconFile()
 
 
     log_error "ERROR:AmpliconFile output file not found"
-    update_status "$QUEUEID" "ERROR:AmpliconFile" "$DB" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "ERROR:AmpliconFile" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
     exit
 
   else
@@ -147,13 +148,13 @@ heme_generate_ampliconFile()
 heme_pre_annotation()
 {
 
-  HEME_EXCLUDED_DESIGN="/home/doc/ref/Heme/trusight-myeloid-amplicon-track.excluded.bed"
+  HEME_EXCLUDED_DESIGN="/storage/database/ngs_doc/heme/trusight-myeloid-amplicon-track.excluded.bed"
   #bedtools -u flag to write original A entry once if any overlaps found in B
-  #KEEP variants if they occurn in heme design region
-  /opt/software/bedtools-2.17.0/bin/bedtools intersect -u -a $VARIANT_VCF -b $HEME_EXCLUDED_DESIGN > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.filter.vcf
+
+  /storage/apps/opt/bedtools/bedtools2_17/bin/bedtools intersect -u -a $VARIANT_VCF -b $HEME_EXCLUDED_DESIGN > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.filter.vcf
 
 
-  HEME_EXCLUDED_AMPLICON="/home/doc/ref/Heme/excludedAmplicons.txt"
+  HEME_EXCLUDED_AMPLICON="/storage/database/ngs_doc/heme/excludedAmplicons.txt"
   # -v means "invert the match" in grep, in other words, return all non matching lines.
   grep -v -f $HEME_EXCLUDED_AMPLICON $AMPLICON_FILE > ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.amplicon.filter.txt
 
@@ -162,27 +163,6 @@ heme_pre_annotation()
 heme_run_annotation()
 {
   bash ${HOME_SHELLDIR}heme_annotationPipeline.sh -d $HOME_ANALYSIS \
-        -s $SAMPLENAME -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
-}
-
-cardiac_exome_generate_variantFile()
-{
-  bash /home/pipelines/ngs_${ENVIRONMENT}/shell/cardiac_exome_interface.sh \
-      -r $RUNID \
-      -s $SAMPLENAME \
-      -a $ASSAY \
-      -i $INSTRUMENT \
-      -e $ENVIRONMENT \
-      -q $QUEUEID  \
-      -u $USER \
-      -p $PASSWORD
-
-  VARIANT_VCF=$(ls ${HOME_ANALYSIS}variantAnalysis/${SAMPLENAME}.mutect.combine.v4.vcf )
-}
-
-cardiac_exome_run_annotation()
-{
-  bash ${HOME_SHELLDIR}cardiac_exome_annotationPipeline.sh -d $HOME_ANALYSIS \
         -s $SAMPLENAME -e $ENVIRONMENT -q $QUEUEID -u $USER -p $PASSWORD
 }
 
@@ -208,9 +188,9 @@ tmb_run_Alignment_paired()
 
   log_info "Running NORMAL/TUMOR Pair TMB Pipeline!"
 
-  update_status "$QUEUEID" "Alignment" "$DB" "$USER"  "$PASSWORD"
+  update_status "$QUEUEID" "Alignment" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
-	/opt/parallel/bin/parallel --link "bash ${HOME_SHELLDIR}tmb_alignment_Interface.sh \
+	/storage/apps/opt/parallel/bin/parallel --link "bash ${HOME_SHELLDIR}tmb_alignment_Interface.sh \
 	    -s  {1} \
 	    -f  {2} \
 	    -o  $TMB_AL_OUT \
@@ -220,6 +200,7 @@ tmb_run_Alignment_paired()
       -p  $PASSWORD " echo ::: "$NORMAL" "$TUMOR" ::: "$FASTQ_DIR_NORMAL" "$FASTQ_DIR"
 
 }
+
 
 tmb_run_variant_caller_paired()
 {
@@ -233,9 +214,9 @@ tmb_run_variant_caller_paired()
 		return
 	fi
 
-  update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD"
+  update_status "$QUEUEID" "VariantCaller" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
-	bash /home/pipelines/ngs_${ENVIRONMENT}/shell/tmb_VCaller_interface.sh \
+	bash /storage/apps/pipelines/ngs_${ENVIRONMENT}/shell/tmb_VCaller_interface.sh \
 	    -n ${TMB_AL_OUT}${NORMAL}/Alignment/${NORMAL}.sort.rmdups.bam \
 	    -t ${TMB_AL_OUT}${TUMOR}/Alignment/${TUMOR}.sort.rmdups.bam \
 	    -v varscan-strelka-mutect \
@@ -250,19 +231,19 @@ tmb_run_variant_caller_paired()
 
 tmb_generate_stats()
 {
-  /opt/python3/bin/python3   ${HOME_PYTHONDIR}tmb_getSeqStat.py \
+  /storage/apps/opt/python3_4/bin/python3   ${HOME_PYTHONDIR}tmb_getSeqStat.py \
         "${TMB_AL_OUT}${TUMOR}/Alignment/"      "$TUMOR"  \
         "${TMB_AL_OUT}${NORMAL}/Alignment/"      "$NORMAL"  \
         "${TMB_VC_OUT}${TUMOR}_${NORMAL}/"
 
 
-  wc -l /home/environments/ngs_${ENVIRONMENT}/nextseqAnalysis/tmbAssay/${RUNNAME}/${TUMOR}/Single/${TUMOR}/Alignment/${TUMOR}.depth.filter2.exon_intersect.bed > ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}.breadth_coverage
+  wc -l /storage/analysis/environments/ngs_${ENVIRONMENT}/nextseqAnalysis/tmbAssay/${RUNNAME}/${TUMOR}/Single/${TUMOR}/Alignment/${TUMOR}.depth.filter2.exon_intersect.bed > ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}.breadth_coverage
 
-  /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_vcQC.py \
+  /storage/apps/opt/python3_4/bin/python3  ${HOME_PYTHONDIR}tmb_vcQC.py \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.variantcallers.combinev2.*.vep.parse.txt \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.titv_ratio
 
-  /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_final_result.py \
+  /storage/apps/opt/python3_4/bin/python3  ${HOME_PYTHONDIR}tmb_final_result.py \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.seq_stats   \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}.breadth_coverage \
   ${TMB_VC_OUT}${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}_varscan_strelka_mutect_10_10_10.variants_results  \
@@ -274,21 +255,21 @@ tmb_generate_stats()
 tmb_run_dbUpdate()
 {
 
-    update_status "$QUEUEID" "UpdatingDatabase" "$DB" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "UpdatingDatabase" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
     tmb_results="$TMB_VC_OUT${TUMOR}_${NORMAL}/${TUMOR}_${NORMAL}.tmb_result"
 
     tmb_results_statement="load data local infile '$tmb_results' into table sampleTumorMutationBurden FIELDS TERMINATED BY ',' (sampleID,TMBPair,TMBTotalVariants,TMBScore,TMBGroup)"
     mysql --host="$DB_HOST" --user="$USER" --password="$PASSWORD" --database="$DB" --execute="$tmb_results_statement"
 
-    /opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_qc_plots.py \
+    /storage/apps/opt/python3/bin/python3  ${HOME_PYTHONDIR}tmb_qc_plots.py \
     -i "$TUMOR_SAMPLEID" \
     -d "$DB_HOST" \
     -e "$ENVIRONMENT"  \
     -u "$USER"  \
     -p "$PASSWORD"
 
-    update_status "$QUEUEID" "pipelineCompleted" "$DB" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "pipelineCompleted" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
 }
 
@@ -310,20 +291,20 @@ main()
 
     load_modules
 
-    RUNFOLDER=$(ls -d /home/$INSTRUMENT/*_"$RUNID"_*)
-    RUNNAME=${RUNFOLDER##/home/$INSTRUMENT/}
+    RUNFOLDER=$(ls -d /storage/instruments/$INSTRUMENT/*_"$RUNID"_*)
+    RUNNAME=$(basename $RUNFOLDER)
 
-    HOME_CODE="/home/pipelines/ngs_${ENVIRONMENT}/"
+    HOME_CODE="/storage/apps/pipelines/ngs_${ENVIRONMENT}/"
     HOME_RUNDIR="${HOME_CODE}run_files/"
     HOME_SHELLDIR="${HOME_CODE}shell/"
     HOME_PYTHONDIR="${HOME_CODE}python/"
     DB="ngs_${ENVIRONMENT}"
-    DB_HOST="hhplabngsp01"
+    DB_HOST="storage"
 
-    HOME_ANALYSIS="/home/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${ASSAY}Assay/${RUNNAME}/${SAMPLENAME}/"
+    HOME_ANALYSIS="/storage/analysis/environments/ngs_${ENVIRONMENT}/${INSTRUMENT}Analysis/${ASSAY}Assay/${RUNNAME}/${SAMPLENAME}/"
 
 
-    update_status "$QUEUEID" "started" "$DB" "$USER"  "$PASSWORD"
+    update_status "$QUEUEID" "started" "$DB" "$USER"  "$PASSWORD" "$DB_HOST"
 
 
     if [ $ASSAY == "heme" ] ; then
@@ -362,38 +343,6 @@ main()
 
       heme_run_annotation
 
-
-    elif [ $ASSAY == "cardiac_exome" ] ; then
-
-      create_rundate
-
-      exec >  >(tee -a ${HOME_ANALYSIS}process.log)
-      exec 2> >(tee -a ${HOME_ANALYSIS}process.log >&2)
-
-      show_pbsinfo
-
-
-      VARIANT_VCF=""
-
-      create_dir ${HOME_ANALYSIS}variantCaller
-      create_dir ${HOME_ANALYSIS}variantAnalysis
-
-
-      log_info " Running illumina Pipeline Interface BY qsub for :
-      assay : $ASSAY
-      instrument : $INSTRUMENT
-      runID : $RUNID
-      sampleName : $SAMPLENAME
-      environment : $ENVIRONMENT
-      queueID : $QUEUEID "
-
-      # cardiac_exome_generate_variantFile
-
-      log_info " variant file is - $VARIANT_VCF"
-
-      cardiac_exome_run_annotation
-
-
     elif [ $ASSAY == "tmb" ] ; then
 
       FASTQ_DIR="${RUNFOLDER}/out1/"
@@ -414,7 +363,7 @@ main()
 
       if [ "$NORMAL_RUNID" != "$RUNID" ] ; then
 
-        NORMAL_RUNFOLDER=$(ls -d /home/$INSTRUMENT/*_"$NORMAL_RUNID"_*)
+        NORMAL_RUNFOLDER=$(ls -d /storage/instruments/$INSTRUMENT/*_"$NORMAL_RUNID"_*)
         FASTQ_DIR_NORMAL="${NORMAL_RUNFOLDER}/out1/"
 
       else
@@ -451,11 +400,11 @@ main()
 
     ##############################################################################
 
-    tmb_run_Alignment_paired
+    # tmb_run_Alignment_paired
 
-    tmb_run_variant_caller_paired
+    # tmb_run_variant_caller_paired
 
-    tmb_generate_stats
+    # tmb_generate_stats
 
     tmb_run_dbUpdate
 

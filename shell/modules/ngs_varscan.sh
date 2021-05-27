@@ -7,15 +7,15 @@ heme_varscan()
   fileName=${bam##*/}
   sample=${fileName%%.*}
 
-  ref="/home/doc/ref/ref_genome/ucsc.hg19.fasta"
+  ref="/storage/database/ngs_doc/reference/ucsc.hg19.fasta"
 
   ##Varscan call SNPs##
-  /opt/samtools/samtools mpileup -f "$ref" "$bam" | \
-  java -jar /opt/varscan/VarScan.v2.3.9.jar pileup2snp > "$outDir"/"$sample".snp.varscan.output
+  /storage/apps/opt/samtools/bin/samtools mpileup -f "$ref" "$bam" | \
+  /storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/varscan/VarScan.v2.3.9.jar pileup2snp > "$outDir"/"$sample".snp.varscan.output
 
   ##Varscan call indels##
-  /opt/samtools/samtools mpileup -f "$ref" "$bam" | \
-  java -jar /opt/varscan/VarScan.v2.3.9.jar pileup2indel > "$outDir"/"$sample".indel.varscan.output
+  /storage/apps/opt/samtools/bin/samtools mpileup -f "$ref" "$bam" | \
+  /storage/apps/opt/java/jdk1.8.0_191/bin/java -jar /storage/apps/opt/varscan/VarScan.v2.3.9.jar pileup2indel > "$outDir"/"$sample".indel.varscan.output
 }
 
 germline_varscan()
@@ -29,11 +29,11 @@ germline_varscan()
 
   ##Varscan call SNPs##
   /opt/samtools/samtools mpileup -f "$ref" "$bam" | \
-  java -jar /opt/varscan/VarScan.v2.3.9.jar pileup2snp  --p-value 0.01 --min-avg-qual 30 > "$outDir"/"$sample".snp.txt
+  java -jar /storage/apps/opt/varscan/VarScan.v2.3.9.jar pileup2snp  --p-value 0.01 --min-avg-qual 30 > "$outDir"/"$sample".snp.txt
 
   ##Varscan call indels##
   /opt/samtools/samtools mpileup -f "$ref" "$bam" | \
-  java -jar /opt/varscan/VarScan.v2.3.9.jar pileup2indel --p-value 0.01 --min-avg-qual 30 > "$outDir"/"$sample".indel.txt
+  java -jar /storage/apps/opt/varscan/VarScan.v2.3.9.jar pileup2indel --p-value 0.01 --min-avg-qual 30 > "$outDir"/"$sample".indel.txt
 }
 
 tmb_varscan()
@@ -56,7 +56,7 @@ tmb_varscan()
   OUT_DIR :$OUT_DIR
   "
 
-  java -jar /opt/varscan/VarScan.v2.3.9.jar somatic \
+  java -jar /storage/apps/opt/varscan/VarScan.v2.3.9.jar somatic \
             <(/opt/samtools19/bin/samtools  mpileup  -f $REF  $NORMAL_BAM ) \
             <(/opt/samtools19/bin/samtools  mpileup  -f $REF  $TUMOR_BAM) \
             ${OUT_DIR}${SAMPLE}.varscan.output \
